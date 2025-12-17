@@ -27,3 +27,24 @@ app.use(i18n);
 
 // Монтируем приложение
 app.mount("#app");
+
+// Явный редирект на /home после монтирования
+router.isReady().then(() => {
+  const currentPath = router.currentRoute.value.path;
+  const currentName = router.currentRoute.value.name;
+
+  // Если мы на корневом пути или на index, перенаправляем на home
+  if (
+    currentPath === "/" ||
+    currentPath === "/index" ||
+    currentPath === "/dofy_tel/" ||
+    currentPath === "/dofy_tel" ||
+    currentName === "main" ||
+    currentName === "index" ||
+    !currentName
+  ) {
+    router.push("/home").catch(() => {
+      // Игнорируем ошибки навигации (например, если уже на этом пути)
+    });
+  }
+});

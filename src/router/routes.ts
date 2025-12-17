@@ -11,7 +11,7 @@ export default () => {
     {
       path: "/",
       name: "main",
-      redirect: { path: "/index" },
+      redirect: { name: "index" },
       component: Main,
       children: [
         {
@@ -20,7 +20,7 @@ export default () => {
           meta: {
             requiresAuth: true,
           },
-          redirect: { path: "/home" },
+          redirect: { name: "home" },
           component: Index,
           children: [
             {
