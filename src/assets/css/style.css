@@ -1,0 +1,20 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap');
+@import 'tailwindcss';
+
+html,
+body {
+  width: fit-content;
+  height: 100vh;
+  font-family: 'Noto Sans';
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 20px; /* 142.857% */
+}
+
+#app {
+  height: 100%;
+  display: flex;
+  flex-flow: column;
+  flex-grow: 1;
+}
