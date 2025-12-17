@@ -9,9 +9,11 @@ import {
   PersonOutline,
 } from "@vicons/ionicons5";
 import { NIcon, NButton } from "naive-ui";
+import { useSafeArea } from "@/composables/useSafeArea";
 
 const router = useRouter();
 const route = useRoute();
+const { safeAreaInsets } = useSafeArea();
 
 const tabs = [
   { name: "market", label: "Маркет", icon: StorefrontOutline, path: "/market" },
@@ -39,10 +41,21 @@ const navigateTo = (path: string) => {
 
 <template>
   <div class="flex flex-col grow h-full">
-    <router-view class="flex flex-col grow overflow-auto pb-16" />
+    <router-view
+      class="flex flex-col grow overflow-auto"
+      :style="{
+        paddingBottom: `${64 + safeAreaInsets.bottom}px`,
+        paddingTop: `${safeAreaInsets.top}px`,
+      }"
+    />
 
     <div
       class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50"
+      :style="{
+        paddingBottom: `${safeAreaInsets.bottom}px`,
+        paddingLeft: `${safeAreaInsets.left}px`,
+        paddingRight: `${safeAreaInsets.right}px`,
+      }"
     >
       <div class="flex justify-around items-center h-16 px-2">
         <n-button
