@@ -17,7 +17,6 @@
               Название таймера
             </label>
             <n-input
-              ref="nameInputRef"
               v-model:value="form.name"
               placeholder="Например: Тренировка, Работа, Отдых"
               size="large"
@@ -181,7 +180,6 @@ const emit = defineEmits<{
   update: [id: string, timer: { name: string; duration: { hours: number; minutes: number; seconds: number } }];
 }>();
 
-const nameInputRef = ref<InstanceType<typeof NInput> | null>(null);
 const windowWidth = ref(window.innerWidth);
 
 const drawerWidth = computed(() => {
