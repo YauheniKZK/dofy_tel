@@ -22,6 +22,14 @@
               quaternary
               type="primary"
               size="small"
+              @click.stop="handleStartTimer(timer)"
+            >
+              Запустить
+            </n-button>
+            <n-button
+              quaternary
+              type="primary"
+              size="small"
               @click.stop="handleEditTimer(timer)"
             >
               Редактировать
