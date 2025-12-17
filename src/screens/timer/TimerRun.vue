@@ -9,7 +9,10 @@
     
     <div v-if="timer" class="w-full max-w-md relative z-10">
       <!-- Заголовок с кнопкой выбора таймера -->
-      <div class="mb-4">
+      <div 
+        class="timer-controls mb-4 transition-all duration-300 ease-in-out"
+        :class="isTimerControlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'"
+      >
         <div class="flex items-center justify-between mb-2">
           <h1 class="text-xl font-bold text-gray-800 flex-1 truncate pr-2">{{ timer.name }}</h1>
         </div>
@@ -46,7 +49,7 @@
           <template v-for="(char, index) in timeChars" :key="`${formattedTime}-${index}`">
             <span
               v-if="char === ':'"
-              class="text-7xl sm:text-8xl md:text-9xl font-bold mx-1"
+              class="timer-char font-bold mx-1"
               :class="timeColor"
             >
               {{ char }}
@@ -54,7 +57,7 @@
             <span
               v-else
               :ref="el => setTimeCharRef(el, index)"
-              class="text-7xl sm:text-8xl md:text-9xl font-bold tracking-tighter inline-block transition-colors duration-300 will-change-transform"
+              class="timer-char font-bold tracking-tighter inline-block transition-colors duration-300 will-change-transform"
               :class="timeColor"
               style="transform-origin: center; backface-visibility: hidden;"
             >
@@ -62,13 +65,19 @@
             </span>
           </template>
         </div>
-        <div class="text-sm sm:text-base text-gray-500 font-medium mt-4">
+        <div 
+          class="timer-controls text-sm sm:text-base text-gray-500 font-medium mt-4 transition-all duration-300 ease-in-out"
+          :class="isTimerControlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'"
+        >
           {{ progressText }}
         </div>
       </div>
 
       <!-- Кнопки управления -->
-      <div class="flex justify-center items-center gap-6 mt-8">
+      <div 
+        class="timer-controls flex justify-center items-center gap-6 mt-8 transition-all duration-300 ease-in-out"
+        :class="isTimerControlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'"
+      >
         <!-- Кнопка запуска (когда таймер не запущен) -->
         <n-button
           v-if="!isRunning && !isPaused"
@@ -177,7 +186,10 @@
       </div>
 
       <!-- Кнопка назад -->
-      <div class="mt-4">
+      <div 
+        class="timer-controls mt-4 transition-all duration-300 ease-in-out"
+        :class="isTimerControlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'"
+      >
         <n-button
           block
           size="medium"
@@ -219,7 +231,7 @@ const notification = useNotification();
 const route = useRoute();
 const router = useRouter();
 const timersStore = useTimersStore();
-const { setShouldHideTabBar } = useTabBarVisibility();
+const { setShouldHideTabBar, setShouldHideTimerControls, isTimerControlsVisible } = useTabBarVisibility();
 
 const timer = ref<Timer | null>(null);
 const remainingSeconds = ref(0);
@@ -548,8 +560,9 @@ watch(() => route.params.id, (newId) => {
 });
 
 onUnmounted(() => {
-  // Показываем таббар при размонтировании компонента (переход на другую страницу)
+  // Показываем таббар и элементы управления при размонтировании компонента (переход на другую страницу)
   setShouldHideTabBar(false);
+  setShouldHideTimerControls(false);
   
   if (intervalId !== null) {
     clearInterval(intervalId);
@@ -601,8 +614,9 @@ const startTimer = () => {
   isRunning.value = true;
   isPaused.value = false;
   
-  // Скрываем таббар при запуске таймера
+  // Скрываем таббар и элементы управления при запуске таймера
   setShouldHideTabBar(true);
+  setShouldHideTimerControls(true);
   
   // Запускаем анимацию canvas
   if (animationFrameId === null) {
@@ -623,8 +637,9 @@ const pauseTimer = () => {
   isRunning.value = false;
   isPaused.value = true;
   
-  // Показываем таббар при паузе
+  // Показываем таббар и элементы управления при паузе
   setShouldHideTabBar(false);
+  setShouldHideTimerControls(false);
   
   if (intervalId !== null) {
     clearInterval(intervalId);
@@ -636,8 +651,9 @@ const resumeTimer = () => {
   isRunning.value = true;
   isPaused.value = false;
   
-  // Скрываем таббар при возобновлении таймера
+  // Скрываем таббар и элементы управления при возобновлении таймера
   setShouldHideTabBar(true);
+  setShouldHideTimerControls(true);
   
   // Запускаем анимацию canvas
   if (animationFrameId === null) {
@@ -658,8 +674,9 @@ const stopTimer = () => {
   isRunning.value = false;
   isPaused.value = false;
   
-  // Показываем таббар при остановке таймера
+  // Показываем таббар и элементы управления при остановке таймера
   setShouldHideTabBar(false);
+  setShouldHideTimerControls(false);
   
   if (intervalId !== null) {
     clearInterval(intervalId);
@@ -708,6 +725,24 @@ const goBack = () => {
   text-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   display: inline-block;
   transform-origin: center;
+}
+
+/* Размеры цифр таймера */
+.timer-char {
+  font-size: 6rem; /* 96px */
+  line-height: 1;
+}
+
+@media (min-width: 640px) {
+  .timer-char {
+    font-size: 8rem; /* 128px */
+  }
+}
+
+@media (min-width: 768px) {
+  .timer-char {
+    font-size: 10rem; /* 160px */
+  }
 }
 </style>
 
