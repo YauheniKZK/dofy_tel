@@ -205,7 +205,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick, type ComponentPublicInstance } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { NButton, useNotification } from 'naive-ui';
 import { useTimersStore } from '@/stores/timers';
@@ -255,9 +255,9 @@ const timeChars = computed(() => {
   return formattedTime.value.split('');
 });
 
-const setTimeCharRef = (el: HTMLElement | null, index: number) => {
-  if (el) {
-    timeCharRefs.value[index] = el;
+const setTimeCharRef = (el: HTMLElement | ComponentPublicInstance | null, index: number) => {
+  if (el && 'tagName' in el) {
+    timeCharRefs.value[index] = el as HTMLElement;
   }
 };
 
