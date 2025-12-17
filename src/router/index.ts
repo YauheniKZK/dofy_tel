@@ -2,7 +2,7 @@ import { createRouter, createWebHashHistory } from 'vue-router';
 import getRoutes from '@/router/routes';
 
 const router = createRouter({
-  history: createWebHashHistory(),
+  history: createWebHashHistory('/dofy_tel/'),
   routes: getRoutes(),
 });
 
