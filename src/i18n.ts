@@ -12,10 +12,13 @@ function loadLocaleMessages() {
     for (const path in locales) {
       const array = path.split('/');
       const lanFile = array[array.length - 1];
-      const lanFileName = lanFile.split('.')[0];
+      
+      if (lanFile) {
+        const lanFileName = lanFile.split('.')[0];
 
-      if (allowedLanguages.includes(lanFileName)) {
-        Object.assign(messages, { [lanFileName]: locales[path] });
+        if (lanFileName && allowedLanguages.includes(lanFileName)) {
+          Object.assign(messages, { [lanFileName]: locales[path] });
+        }
       }
     }
   }

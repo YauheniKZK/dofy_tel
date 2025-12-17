@@ -16,7 +16,6 @@ onMounted(async () => {
     console.log('User:', user);
     const id = user?.id
     const firstName = user?.first_name || ''
-    const lastName = user?.last_name || ''
     console.log('id:', id);
     console.log('userName:', firstName);
   }
