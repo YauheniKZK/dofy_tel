@@ -8,7 +8,7 @@
         v-for="timer in timersList"
         :key="timer.id"
         class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-        @click="handleStartTimer(timer)"
+        @click="handleEditTimer(timer)"
       >
         <div class="flex items-start justify-between">
           <div class="flex-1">

@@ -10,10 +10,18 @@ import {
 } from "@vicons/ionicons5";
 import { NIcon, NButton } from "naive-ui";
 import { useSafeArea } from "@/composables/useSafeArea";
+import WebApp from "@twa-dev/sdk";
 
 const router = useRouter();
 const route = useRoute();
 const { safeAreaInsets } = useSafeArea();
+
+const isDark = computed(() => {
+  if (typeof WebApp !== "undefined" && WebApp.colorScheme) {
+    return WebApp.colorScheme === "dark";
+  }
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+});
 
 const tabs = [
   { name: "market", label: "Маркет", icon: StorefrontOutline, path: "/market" },
@@ -50,7 +58,12 @@ const navigateTo = (path: string) => {
     />
 
     <div
-      class="fixed bg-white/95 backdrop-blur-md border-t border-gray-200 shadow-2xl rounded-2xl z-50"
+      class="fixed backdrop-blur-md border-t shadow-2xl rounded-2xl z-50 transition-colors"
+      :class="
+        isDark
+          ? 'bg-gray-800/95 border-gray-700'
+          : 'bg-white/95 border-gray-200'
+      "
       :style="{
         left: `${16 + safeAreaInsets.left}px`,
         right: `${16 + safeAreaInsets.right}px`,
