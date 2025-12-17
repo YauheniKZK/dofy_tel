@@ -1,30 +1,15 @@
 <template>
-  <ModalDialog :show-modal="showModal" @close="handleClose">
-    <template #content>
-      <div class="flex flex-col h-full max-h-[80vh]">
+  <n-drawer
+    :show="showModal"
+    :width="drawerWidth"
+    placement="right"
+    :mask-closable="true"
+    @update:show="handleDrawerClose"
+  >
+    <n-drawer-content :title="editingTimer ? 'Редактировать таймер' : 'Создать таймер'" closable>
+      <div class="flex flex-col h-full">
         <!-- Прокручиваемый контент -->
         <div class="flex-1 overflow-y-auto py-4">
-          <div class="flex items-center gap-2 mb-4">
-            <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="text-blue-600"
-              >
-                <circle cx="12" cy="12" r="10"></circle>
-                <polyline points="12 6 12 12 16 14"></polyline>
-              </svg>
-            </div>
-            <h2 class="text-xl font-bold">{{ editingTimer ? 'Редактировать таймер' : 'Создать таймер' }}</h2>
-          </div>
-
           <div class="space-y-4">
           <!-- Название -->
           <div>
@@ -32,6 +17,7 @@
               Название таймера
             </label>
             <n-input
+              ref="nameInputRef"
               v-model:value="form.name"
               placeholder="Например: Тренировка, Работа, Отдых"
               size="large"
@@ -137,7 +123,7 @@
         </div>
 
         <!-- Закрепленные кнопки внизу -->
-        <div class="flex flex-col gap-3 pt-4 pb-2 border-t border-gray-200 bg-white sticky bottom-0 -mx-4 px-4 mt-4">
+        <div class="flex flex-col gap-3 pt-4 pb-2 border-t border-gray-200 mt-4">
           <n-button
             type="primary"
             block
@@ -175,14 +161,13 @@
           </n-button>
         </div>
       </div>
-    </template>
-  </ModalDialog>
+    </n-drawer-content>
+  </n-drawer>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
-import { NInput, NInputNumber, NButton } from 'naive-ui';
-import ModalDialog from '@/components/ui/ModalDialog.vue';
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
+import { NInput, NInputNumber, NButton, NDrawer, NDrawerContent } from 'naive-ui';
 import type { Timer } from '@/stores/timers';
 
 const props = defineProps<{
@@ -195,6 +180,25 @@ const emit = defineEmits<{
   save: [timer: { name: string; duration: { hours: number; minutes: number; seconds: number } }];
   update: [id: string, timer: { name: string; duration: { hours: number; minutes: number; seconds: number } }];
 }>();
+
+const nameInputRef = ref<InstanceType<typeof NInput> | null>(null);
+const windowWidth = ref(window.innerWidth);
+
+const drawerWidth = computed(() => {
+  return windowWidth.value * 0.85;
+});
+
+const handleResize = () => {
+  windowWidth.value = window.innerWidth;
+};
+
+onMounted(() => {
+  window.addEventListener('resize', handleResize);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize);
+});
 
 const form = ref({
   name: '',
@@ -235,6 +239,25 @@ watch(() => props.editingTimer, (timer) => {
   }
   showErrors.value = false;
 }, { immediate: true });
+
+// Автофокус на input при открытии drawer
+watch(() => props.showModal, async (isOpen) => {
+  if (isOpen) {
+    await nextTick();
+    // Небольшая задержка для корректной работы фокуса после анимации drawer
+    setTimeout(() => {
+      // Используем querySelector для поиска input в drawer
+      const drawerContent = document.querySelector('.n-drawer-content');
+      if (drawerContent) {
+        const inputElement = drawerContent.querySelector('input[type="text"]') as HTMLInputElement;
+        if (inputElement) {
+          inputElement.focus();
+          inputElement.select();
+        }
+      }
+    }, 250);
+  }
+});
 
 const timeTemplates = [
   { name: '5 мин', hours: 0, minutes: 5, seconds: 0 },
@@ -292,6 +315,12 @@ const isFormValid = computed(() => {
 const handleClose = () => {
   showErrors.value = false;
   emit('close');
+};
+
+const handleDrawerClose = (show: boolean) => {
+  if (!show) {
+    handleClose();
+  }
 };
 
 const handleSave = async () => {
