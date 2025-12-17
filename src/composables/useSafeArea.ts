@@ -28,6 +28,7 @@ export function useSafeArea() {
             left: tg.safeAreaInsets.left || 0,
             right: tg.safeAreaInsets.right || 0,
           };
+          console.log('Safe area from Telegram WebApp:', safeAreaInsets.value);
           return;
         }
       }
@@ -41,6 +42,9 @@ export function useSafeArea() {
           left: insets.left || 0,
           right: insets.right || 0,
         };
+        console.log('Safe area from SDK:', safeAreaInsets.value);
+      } else {
+        console.log('Safe area insets not available in WebApp');
       }
     } catch (e) {
       console.warn('Failed to get safe area insets:', e);
