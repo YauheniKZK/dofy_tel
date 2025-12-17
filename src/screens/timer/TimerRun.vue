@@ -255,9 +255,9 @@ const timeChars = computed(() => {
   return formattedTime.value.split('');
 });
 
-const setTimeCharRef = (el: HTMLElement | ComponentPublicInstance | null, index: number) => {
-  if (el && 'tagName' in el) {
-    timeCharRefs.value[index] = el as HTMLElement;
+const setTimeCharRef = (el: Element | ComponentPublicInstance | null, index: number) => {
+  if (el && el instanceof HTMLElement) {
+    timeCharRefs.value[index] = el;
   }
 };
 
