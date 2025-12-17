@@ -69,9 +69,9 @@ export const useTimersStore = defineStore('timers', () => {
   }
 
   function updateTimer(id: string, timer: Omit<Timer, 'id' | 'createdAt'>) {
-    const index = timers.value.findIndex((t) => t.id === id);
-    if (index !== -1) {
-      const existingTimer = timers.value[index];
+    const existingTimer = timers.value.find((t) => t.id === id);
+    if (existingTimer) {
+      const index = timers.value.indexOf(existingTimer);
       timers.value[index] = {
         id: existingTimer.id,
         createdAt: existingTimer.createdAt,
