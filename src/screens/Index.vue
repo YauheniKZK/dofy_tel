@@ -10,11 +10,13 @@ import {
 } from "@vicons/ionicons5";
 import { NIcon, NButton } from "naive-ui";
 import { useSafeArea } from "@/composables/useSafeArea";
+import { useTabBarVisibility } from "@/composables/useTabBarVisibility";
 import WebApp from "@twa-dev/sdk";
 
 const router = useRouter();
 const route = useRoute();
 const { safeAreaInsets } = useSafeArea();
+const { isTabBarVisible } = useTabBarVisibility();
 
 const isDark = computed(() => {
   if (typeof WebApp !== "undefined" && WebApp.colorScheme) {
@@ -58,12 +60,15 @@ const navigateTo = (path: string) => {
     />
 
     <div
-      class="fixed backdrop-blur-md border-t shadow-2xl rounded-2xl z-50 transition-colors"
-      :class="
+      class="tabbar-container fixed backdrop-blur-md border-t shadow-2xl rounded-2xl z-50 transition-all duration-300 ease-in-out"
+      :class="[
         isDark
           ? 'bg-gray-800/95 border-gray-700'
-          : 'bg-white/95 border-gray-200'
-      "
+          : 'bg-white/95 border-gray-200',
+        isTabBarVisible
+          ? 'translate-y-0 opacity-100'
+          : 'translate-y-full opacity-0 pointer-events-none',
+      ]"
       :style="{
         left: `${16 + safeAreaInsets.left}px`,
         right: `${16 + safeAreaInsets.right}px`,

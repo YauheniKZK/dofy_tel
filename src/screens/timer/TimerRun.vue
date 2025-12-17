@@ -40,65 +40,49 @@
         </n-button>
       </div>
 
-      <!-- Круговой прогресс-бар с временем -->
-      <div class="mb-6 flex justify-center">
-        <div class="relative w-48 h-48 sm:w-56 sm:h-56">
-          <!-- SVG круговой прогресс -->
-          <svg class="transform -rotate-90 w-full h-full" viewBox="0 0 100 100">
-            <!-- Фоновый круг -->
-            <circle
-              cx="50"
-              cy="50"
-              r="45"
-              fill="none"
-              stroke="#e5e7eb"
-              stroke-width="8"
-            />
-            <!-- Прогресс круг -->
-            <circle
-              cx="50"
-              cy="50"
-              r="45"
-              fill="none"
-              :stroke="progressColor"
-              stroke-width="8"
-              stroke-linecap="round"
-              :stroke-dasharray="circumference"
-              :stroke-dashoffset="progressOffset"
-              class="transition-all duration-300 ease-out"
-            />
-          </svg>
-          
-          <!-- Время в центре -->
-          <div class="absolute inset-0 flex flex-col items-center justify-center">
-            <div 
-              class="text-4xl sm:text-5xl font-bold mb-1 transition-colors duration-300"
+      <!-- Большой счетчик времени -->
+      <div class="mb-8 flex flex-col items-center justify-center">
+        <div class="timer-display flex items-center justify-center">
+          <template v-for="(char, index) in timeChars" :key="`${formattedTime}-${index}`">
+            <span
+              v-if="char === ':'"
+              class="text-7xl sm:text-8xl md:text-9xl font-bold mx-1"
               :class="timeColor"
             >
-              {{ formattedTime }}
-            </div>
-            <div class="text-xs sm:text-sm text-gray-500 font-medium">
-              {{ progressText }}
-            </div>
-          </div>
+              {{ char }}
+            </span>
+            <span
+              v-else
+              :ref="el => setTimeCharRef(el, index)"
+              class="text-7xl sm:text-8xl md:text-9xl font-bold tracking-tighter inline-block transition-colors duration-300 will-change-transform"
+              :class="timeColor"
+              style="transform-origin: center; backface-visibility: hidden;"
+            >
+              {{ char }}
+            </span>
+          </template>
+        </div>
+        <div class="text-sm sm:text-base text-gray-500 font-medium mt-4">
+          {{ progressText }}
         </div>
       </div>
 
       <!-- Кнопки управления -->
-      <div class="flex flex-col gap-2">
+      <div class="flex justify-center items-center gap-6 mt-8">
+        <!-- Кнопка запуска (когда таймер не запущен) -->
         <n-button
           v-if="!isRunning && !isPaused"
           type="primary"
+          circle
           size="large"
-          block
-          class="h-12 text-base font-semibold shadow-lg"
+          class="w-20 h-20 shadow-xl hover:scale-110 active:scale-95 transition-all duration-200"
           @click="startTimer"
         >
           <template #icon>
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
+              width="32"
+              height="32"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -109,23 +93,24 @@
               <polygon points="5 3 19 12 5 21 5 3"></polygon>
             </svg>
           </template>
-          Запустить
         </n-button>
 
-        <div v-if="isRunning || isPaused" class="flex flex-col gap-2">
+        <!-- Кнопки управления (когда таймер запущен или на паузе) -->
+        <template v-if="isRunning || isPaused">
+          <!-- Кнопка паузы/продолжения -->
           <n-button
             v-if="isRunning"
             type="warning"
+            circle
             size="large"
-            block
-            class="h-12 text-base font-semibold shadow-lg"
+            class="w-16 h-16 shadow-lg hover:scale-110 active:scale-95 transition-all duration-200"
             @click="pauseTimer"
           >
             <template #icon>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
+                width="24"
+                height="24"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -137,22 +122,21 @@
                 <rect x="14" y="4" width="4" height="16"></rect>
               </svg>
             </template>
-            Пауза
           </n-button>
 
           <n-button
             v-if="isPaused"
             type="primary"
+            circle
             size="large"
-            block
-            class="h-12 text-base font-semibold shadow-lg"
+            class="w-16 h-16 shadow-lg hover:scale-110 active:scale-95 transition-all duration-200"
             @click="resumeTimer"
           >
             <template #icon>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
+                width="24"
+                height="24"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -163,21 +147,21 @@
                 <polygon points="5 3 19 12 5 21 5 3"></polygon>
               </svg>
             </template>
-            Продолжить
           </n-button>
 
+          <!-- Кнопка остановки -->
           <n-button
             type="error"
+            circle
             size="large"
-            block
-            class="h-12 text-base font-semibold shadow-lg"
+            class="w-16 h-16 shadow-lg hover:scale-110 active:scale-95 transition-all duration-200"
             @click="stopTimer"
           >
             <template #icon>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
+                width="24"
+                height="24"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -188,9 +172,8 @@
                 <rect x="6" y="6" width="12" height="12"></rect>
               </svg>
             </template>
-            Остановить
           </n-button>
-        </div>
+        </template>
       </div>
 
       <!-- Кнопка назад -->
@@ -228,12 +211,15 @@ import { NButton, useNotification } from 'naive-ui';
 import { useTimersStore } from '@/stores/timers';
 import SelectTimerModal from '@/components/timer/SelectTimerModal.vue';
 import type { Timer } from '@/stores/timers';
+import { animate } from 'animejs';
+import { useTabBarVisibility } from '@/composables/useTabBarVisibility';
 
 const notification = useNotification();
 
 const route = useRoute();
 const router = useRouter();
 const timersStore = useTimersStore();
+const { setShouldHideTabBar } = useTabBarVisibility();
 
 const timer = ref<Timer | null>(null);
 const remainingSeconds = ref(0);
@@ -241,10 +227,12 @@ const isRunning = ref(false);
 const isPaused = ref(false);
 const showSelectModal = ref(false);
 const canvasRef = ref<HTMLCanvasElement | null>(null);
+const timeCharRefs = ref<(HTMLElement | null)[]>([]);
 let intervalId: number | null = null;
 let animationFrameId: number | null = null;
 let animatedFillHeight = 0; // Текущая анимированная высота заполнения
 let lastUpdateTime = 0;
+let pulseAnimations: ReturnType<typeof animate>[] = [];
 
 const totalSeconds = computed(() => {
   if (!timer.value) return 0;
@@ -263,6 +251,111 @@ const formattedTime = computed(() => {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 });
 
+const timeChars = computed(() => {
+  return formattedTime.value.split('');
+});
+
+const setTimeCharRef = (el: HTMLElement | null, index: number) => {
+  if (el) {
+    timeCharRefs.value[index] = el;
+  }
+};
+
+// Анимация каждой цифры при изменении времени
+const previousTime = ref('');
+watch(() => formattedTime.value, (newTime) => {
+  const oldTime = previousTime.value;
+  previousTime.value = newTime;
+  
+  if (!oldTime) return; // Пропускаем первую инициализацию
+  
+  nextTick(() => {
+    // Останавливаем предыдущие анимации пульсации перед новой анимацией
+    pulseAnimations.forEach(anim => {
+      if (anim) {
+        try {
+          anim.pause();
+        } catch (e) {
+          // Игнорируем ошибки при остановке
+        }
+      }
+    });
+    pulseAnimations = [];
+
+    // Анимируем каждую цифру отдельно
+    timeCharRefs.value.forEach((charEl, index) => {
+      if (charEl && newTime[index] !== oldTime[index]) {
+        // Сбрасываем все стили перед анимацией
+        charEl.style.transform = '';
+        charEl.style.opacity = '';
+        
+        // Устанавливаем начальное состояние (сверху, прозрачное)
+        charEl.style.transform = 'translateY(40px)';
+        charEl.style.opacity = '0';
+        
+        // Плавная анимация появления сверху без резких движений
+        animate(charEl, {
+          translateY: [40, 0],
+          opacity: [0, 1],
+          scale: [0.85, 1],
+          duration: 500,
+          easing: 'easeOutCubic',
+          delay: index * 20, // Небольшая задержка для каждой цифры
+        });
+      }
+    });
+  });
+});
+
+// Анимация пульсации при работе таймера
+watch(() => isRunning.value, (running) => {
+  nextTick(() => {
+    // Останавливаем все предыдущие анимации пульсации
+    pulseAnimations.forEach(anim => {
+      if (anim) {
+        try {
+          anim.pause();
+        } catch (e) {
+          // Игнорируем ошибки
+        }
+      }
+    });
+    pulseAnimations = [];
+
+    if (running) {
+      // Небольшая задержка перед началом пульсации, чтобы не конфликтовать с анимацией появления
+      setTimeout(() => {
+        // Добавляем очень легкую пульсацию к каждой цифре
+        timeCharRefs.value.forEach((charEl) => {
+          if (charEl) {
+            // Сбрасываем transform перед пульсацией
+            charEl.style.transform = '';
+            
+            const anim = animate(charEl, {
+              scale: [1, 1.02, 1],
+              duration: 2500,
+              easing: 'easeInOutSine',
+              loop: true,
+            });
+            pulseAnimations.push(anim);
+          }
+        });
+      }, 600);
+    } else {
+      // Плавно возвращаем масштаб к 1
+      timeCharRefs.value.forEach((charEl) => {
+        if (charEl) {
+          animate(charEl, {
+            scale: 1,
+            duration: 400,
+            easing: 'easeOutSine',
+          });
+        }
+      });
+    }
+  });
+});
+
 const progressPercentage = computed(() => {
   if (!timer.value || totalSeconds.value === 0) return 0;
   const elapsed = totalSeconds.value - remainingSeconds.value;
@@ -271,16 +364,6 @@ const progressPercentage = computed(() => {
 
 const progressText = computed(() => {
   return `Прогресс: ${progressPercentage.value}%`;
-});
-
-// Круговая прогресс-бар
-const circumference = computed(() => {
-  return 2 * Math.PI * 45; // радиус 45
-});
-
-const progressOffset = computed(() => {
-  const progress = progressPercentage.value / 100;
-  return circumference.value * (1 - progress);
 });
 
 const progressColor = computed(() => {
@@ -465,6 +548,9 @@ watch(() => route.params.id, (newId) => {
 });
 
 onUnmounted(() => {
+  // Показываем таббар при размонтировании компонента (переход на другую страницу)
+  setShouldHideTabBar(false);
+  
   if (intervalId !== null) {
     clearInterval(intervalId);
   }
@@ -474,6 +560,8 @@ onUnmounted(() => {
   if (resizeHandler) {
     window.removeEventListener('resize', resizeHandler);
   }
+  pulseAnimations.forEach(anim => anim?.pause());
+  pulseAnimations = [];
 });
 
 // Обновляем canvas при изменении прогресса и состояния
@@ -513,6 +601,9 @@ const startTimer = () => {
   isRunning.value = true;
   isPaused.value = false;
   
+  // Скрываем таббар при запуске таймера
+  setShouldHideTabBar(true);
+  
   // Запускаем анимацию canvas
   if (animationFrameId === null) {
     animateCanvas();
@@ -532,6 +623,9 @@ const pauseTimer = () => {
   isRunning.value = false;
   isPaused.value = true;
   
+  // Показываем таббар при паузе
+  setShouldHideTabBar(false);
+  
   if (intervalId !== null) {
     clearInterval(intervalId);
     intervalId = null;
@@ -541,6 +635,9 @@ const pauseTimer = () => {
 const resumeTimer = () => {
   isRunning.value = true;
   isPaused.value = false;
+  
+  // Скрываем таббар при возобновлении таймера
+  setShouldHideTabBar(true);
   
   // Запускаем анимацию canvas
   if (animationFrameId === null) {
@@ -560,6 +657,9 @@ const resumeTimer = () => {
 const stopTimer = () => {
   isRunning.value = false;
   isPaused.value = false;
+  
+  // Показываем таббар при остановке таймера
+  setShouldHideTabBar(false);
   
   if (intervalId !== null) {
     clearInterval(intervalId);
@@ -599,18 +699,15 @@ const goBack = () => {
 </script>
 
 <style scoped>
-/* Анимация пульсации для активного таймера */
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
+/* Стили для счетчика */
+.timer-display {
+  perspective: 1000px;
 }
 
-.timer-running {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+.timer-display > div {
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  display: inline-block;
+  transform-origin: center;
 }
 </style>
 
