@@ -44,17 +44,17 @@ const navigateTo = (path: string) => {
     <router-view
       class="flex flex-col grow overflow-auto"
       :style="{
-        paddingBottom: `${64 + safeAreaInsets.bottom}px`,
+        paddingBottom: `${64 + 16 + safeAreaInsets.bottom}px`,
         paddingTop: `${safeAreaInsets.top}px`,
       }"
     />
 
     <div
-      class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50"
+      class="fixed bg-white/95 backdrop-blur-md border-t border-gray-200 shadow-2xl rounded-2xl z-50"
       :style="{
-        paddingBottom: `${safeAreaInsets.bottom}px`,
-        paddingLeft: `${safeAreaInsets.left}px`,
-        paddingRight: `${safeAreaInsets.right}px`,
+        left: `${16 + safeAreaInsets.left}px`,
+        right: `${16 + safeAreaInsets.right}px`,
+        bottom: `${16 + safeAreaInsets.bottom}px`,
       }"
     >
       <div class="flex justify-around items-center h-16 px-2">

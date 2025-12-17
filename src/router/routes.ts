@@ -5,6 +5,9 @@ import Market from "@/screens/market/Market.vue";
 import Stats from "@/screens/stats/Stats.vue";
 import Management from "@/screens/management/Management.vue";
 import Profile from "@/screens/profile/Profile.vue";
+import Timer from "@/screens/timer/Timer.vue";
+import TimerRun from "@/screens/timer/TimerRun.vue";
+import WorkRestTimer from "@/screens/work-rest-timer/WorkRestTimer.vue";
 
 export default () => {
   return [
@@ -67,6 +70,33 @@ export default () => {
                 transition: "",
               },
               component: Profile,
+            },
+            {
+              path: "/timer",
+              name: "timer",
+              meta: {
+                requiresAuth: true,
+                transition: "",
+              },
+              component: Timer,
+            },
+            {
+              path: "/timer/run/:id",
+              name: "timer-run",
+              meta: {
+                requiresAuth: true,
+                transition: "",
+              },
+              component: TimerRun,
+            },
+            {
+              path: "/work-rest-timer",
+              name: "work-rest-timer",
+              meta: {
+                requiresAuth: true,
+                transition: "",
+              },
+              component: WorkRestTimer,
             },
           ],
         },
