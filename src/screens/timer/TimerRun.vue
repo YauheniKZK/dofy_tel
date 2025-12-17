@@ -504,9 +504,6 @@ const showTimerCompleteNotification = () => {
     title: 'Таймер завершен!',
     content: timer.value ? `Таймер "${timer.value.name}" завершил отсчет` : 'Время вышло',
     duration: 5000,
-    style: {
-      marginTop: '20px',
-    },
   });
 };
 
