@@ -9,10 +9,7 @@
     
     <div v-if="timer" class="w-full max-w-md relative z-10">
       <!-- Заголовок с кнопкой выбора таймера -->
-      <div 
-        class="timer-controls mb-4 transition-all duration-300 ease-in-out"
-        :class="isTimerControlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'"
-      >
+      <div class="mb-4">
         <div class="flex items-center justify-between mb-2">
           <h1 class="text-xl font-bold text-gray-800 flex-1 truncate pr-2">{{ timer.name }}</h1>
         </div>
@@ -45,39 +42,40 @@
 
       <!-- Большой счетчик времени -->
       <div class="mb-8 flex flex-col items-center justify-center">
-        <div class="timer-display flex items-center justify-center">
-          <template v-for="(char, index) in timeChars" :key="`${formattedTime}-${index}`">
+        <div class="timer-display relative flex items-center justify-center" style="min-height: 150px;">
+          <!-- Скрытые элементы для измерения размеров текста -->
+          <div class="absolute opacity-0 pointer-events-none whitespace-nowrap">
+            <template v-for="(char, index) in timeChars" :key="`measure-${formattedTime}-${index}`">
             <span
               v-if="char === ':'"
-              class="timer-char font-bold mx-1"
-              :class="timeColor"
+                :ref="el => setTimeCharRef(el, index)"
+                class="text-7xl sm:text-8xl md:text-9xl font-bold mx-1 inline-block"
             >
               {{ char }}
             </span>
             <span
               v-else
               :ref="el => setTimeCharRef(el, index)"
-              class="timer-char font-bold tracking-tighter inline-block transition-colors duration-300 will-change-transform"
-              :class="timeColor"
-              style="transform-origin: center; backface-visibility: hidden;"
+                class="text-7xl sm:text-8xl md:text-9xl font-bold tracking-tighter inline-block"
             >
               {{ char }}
             </span>
           </template>
+          </div>
+          <!-- Canvas для отрисовки цифр с эффектом разделения -->
+          <canvas
+            ref="timeCanvasRef"
+            class="relative"
+            style="display: block;"
+          ></canvas>
         </div>
-        <div 
-          class="timer-controls text-sm sm:text-base text-gray-500 font-medium mt-4 transition-all duration-300 ease-in-out"
-          :class="isTimerControlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'"
-        >
+        <div class="text-sm sm:text-base text-gray-500 font-medium mt-4">
           {{ progressText }}
         </div>
       </div>
 
       <!-- Кнопки управления -->
-      <div 
-        class="timer-controls flex justify-center items-center gap-6 mt-8 transition-all duration-300 ease-in-out"
-        :class="isTimerControlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'"
-      >
+      <div class="flex justify-center items-center gap-6 mt-8">
         <!-- Кнопка запуска (когда таймер не запущен) -->
         <n-button
           v-if="!isRunning && !isPaused"
@@ -186,10 +184,7 @@
       </div>
 
       <!-- Кнопка назад -->
-      <div 
-        class="timer-controls mt-4 transition-all duration-300 ease-in-out"
-        :class="isTimerControlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'"
-      >
+      <div class="mt-4">
         <n-button
           block
           size="medium"
@@ -223,7 +218,6 @@ import { NButton, useNotification } from 'naive-ui';
 import { useTimersStore } from '@/stores/timers';
 import SelectTimerModal from '@/components/timer/SelectTimerModal.vue';
 import type { Timer } from '@/stores/timers';
-import { animate } from 'animejs';
 import { useTabBarVisibility } from '@/composables/useTabBarVisibility';
 
 const notification = useNotification();
@@ -231,7 +225,7 @@ const notification = useNotification();
 const route = useRoute();
 const router = useRouter();
 const timersStore = useTimersStore();
-const { setShouldHideTabBar, setShouldHideTimerControls, isTimerControlsVisible } = useTabBarVisibility();
+const { setShouldHideTabBar } = useTabBarVisibility();
 
 const timer = ref<Timer | null>(null);
 const remainingSeconds = ref(0);
@@ -239,12 +233,12 @@ const isRunning = ref(false);
 const isPaused = ref(false);
 const showSelectModal = ref(false);
 const canvasRef = ref<HTMLCanvasElement | null>(null);
+const timeCanvasRef = ref<HTMLCanvasElement | null>(null);
 const timeCharRefs = ref<(HTMLElement | null)[]>([]);
 let intervalId: number | null = null;
 let animationFrameId: number | null = null;
 let animatedFillHeight = 0; // Текущая анимированная высота заполнения
 let lastUpdateTime = 0;
-let pulseAnimations: ReturnType<typeof animate>[] = [];
 
 const totalSeconds = computed(() => {
   if (!timer.value) return 0;
@@ -281,92 +275,16 @@ watch(() => formattedTime.value, (newTime) => {
   
   if (!oldTime) return; // Пропускаем первую инициализацию
   
+  // Обновляем отрисовку цифр после изменения времени
   nextTick(() => {
-    // Останавливаем предыдущие анимации пульсации перед новой анимацией
-    pulseAnimations.forEach(anim => {
-      if (anim) {
-        try {
-          anim.pause();
-        } catch (e) {
-          // Игнорируем ошибки при остановке
-        }
-      }
-    });
-    pulseAnimations = [];
-
-    // Анимируем каждую цифру отдельно
-    timeCharRefs.value.forEach((charEl, index) => {
-      if (charEl && newTime[index] !== oldTime[index]) {
-        // Сбрасываем все стили перед анимацией
-        charEl.style.transform = '';
-        charEl.style.opacity = '';
-        
-        // Устанавливаем начальное состояние (сверху, прозрачное)
-        charEl.style.transform = 'translateY(40px)';
-        charEl.style.opacity = '0';
-        
-        // Плавная анимация появления сверху без резких движений
-        animate(charEl, {
-          translateY: [40, 0],
-          opacity: [0, 1],
-          scale: [0.85, 1],
-          duration: 500,
-          easing: 'easeOutCubic',
-          delay: index * 20, // Небольшая задержка для каждой цифры
-        });
-      }
+    // Двойной nextTick для гарантии, что элементы отрисованы
+    nextTick(() => {
+      drawTimeChars();
     });
   });
 });
 
-// Анимация пульсации при работе таймера
-watch(() => isRunning.value, (running) => {
-  nextTick(() => {
-    // Останавливаем все предыдущие анимации пульсации
-    pulseAnimations.forEach(anim => {
-      if (anim) {
-        try {
-          anim.pause();
-        } catch (e) {
-          // Игнорируем ошибки
-        }
-      }
-    });
-    pulseAnimations = [];
-
-    if (running) {
-      // Небольшая задержка перед началом пульсации, чтобы не конфликтовать с анимацией появления
-      setTimeout(() => {
-        // Добавляем очень легкую пульсацию к каждой цифре
-        timeCharRefs.value.forEach((charEl) => {
-          if (charEl) {
-            // Сбрасываем transform перед пульсацией
-            charEl.style.transform = '';
-            
-            const anim = animate(charEl, {
-              scale: [1, 1.02, 1],
-              duration: 2500,
-              easing: 'easeInOutSine',
-              loop: true,
-            });
-            pulseAnimations.push(anim);
-          }
-        });
-      }, 600);
-    } else {
-      // Плавно возвращаем масштаб к 1
-      timeCharRefs.value.forEach((charEl) => {
-        if (charEl) {
-          animate(charEl, {
-            scale: 1,
-            duration: 400,
-            easing: 'easeOutSine',
-          });
-        }
-      });
-    }
-  });
-});
+// Анимация пульсации больше не нужна, так как цифры отрисовываются на canvas
 
 const progressPercentage = computed(() => {
   if (!timer.value || totalSeconds.value === 0) return 0;
@@ -378,23 +296,9 @@ const progressText = computed(() => {
   return `Прогресс: ${progressPercentage.value}%`;
 });
 
-const progressColor = computed(() => {
-  if (isRunning.value) {
-    return '#3b82f6'; // blue-500
-  } else if (isPaused.value) {
-    return '#f59e0b'; // amber-500
-  }
-  return '#10b981'; // emerald-500
-});
+// Удаляем progressColor, так как он больше не используется
 
 // Canvas анимация
-const hexToRgba = (hex: string, alpha: number): string => {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-};
-
 const drawCanvas = () => {
   if (!canvasRef.value) return;
   
@@ -406,12 +310,11 @@ const drawCanvas = () => {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
 
-  // Очищаем canvas
+  // Очищаем canvas (прозрачный фон)
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Вычисляем целевую высоту заполнения
-  // Цвет "спускается" сверху вниз - заполнение увеличивается по мере работы таймера
-  // Изначально 0%, увеличивается до 100% когда таймер заканчивается
+  // Вычисляем целевую высоту линии
+  // Линия движется сверху вниз по мере работы таймера
   const elapsedSeconds = totalSeconds.value - remainingSeconds.value;
   const targetFillPercentage = totalSeconds.value > 0 
     ? elapsedSeconds / totalSeconds.value 
@@ -425,64 +328,54 @@ const drawCanvas = () => {
     animatedFillHeight = targetFillHeight;
   }
 
-  const deltaTime = Math.min(currentTime - lastUpdateTime, 50); // Ограничиваем для стабильности
+  const deltaTime = Math.min(currentTime - lastUpdateTime, 50);
   lastUpdateTime = currentTime;
 
-  // Плавное увеличение с коэффициентом интерполяции для плавности
-  const lerpFactor = Math.min(deltaTime / 200, 0.2); // Плавная интерполяция
+  // Плавное движение линии
+  const lerpFactor = Math.min(deltaTime / 200, 0.2);
   animatedFillHeight += (targetFillHeight - animatedFillHeight) * lerpFactor;
 
-  // Ограничиваем значения для предотвращения артефактов
+  // Ограничиваем значения
   animatedFillHeight = Math.max(0, Math.min(canvas.height, animatedFillHeight));
 
-  // Цвет заливки с прозрачностью
-  const color = progressColor.value;
-  const rgbaColor = hexToRgba(color, 0.3);
+  // Обновляем отрисовку цифр с эффектом изменения цвета
+  drawTimeChars();
 
-  // Рисуем заполнение сверху вниз
-  // Цвет "спускается" сверху вниз - линия движется сверху вниз, цвет заполняет нижнюю часть
-  // По мере работы таймера, animatedFillHeight увеличивается, 
-  // создавая эффект "спускающегося" цвета сверху вниз
+  // Цвета заливки
+  const fillColor = '#213448'; // Темный цвет под линией
+  const lightColor = '#EAE0CF'; // Светлый цвет над линией
+  
+  // Рисуем заливку светлым цветом над линией
+  if (animatedFillHeight > 0) {
+    ctx.fillStyle = lightColor;
+    ctx.fillRect(0, 0, canvas.width, animatedFillHeight);
+  }
+  
+  // Рисуем заливку темным цветом под линией
   if (animatedFillHeight < canvas.height) {
-    // Вычисляем высоту области заполнения (от линии до низа экрана)
     const fillAreaHeight = canvas.height - animatedFillHeight;
-    
-    // Создаем градиент от линии к низу заполнения
-    // Более яркий цвет у линии, плавно переходящий вниз
-    const gradient = ctx.createLinearGradient(0, animatedFillHeight, 0, canvas.height);
-    gradient.addColorStop(0, rgbaColor); // Яркий цвет у линии
-    gradient.addColorStop(0.3, hexToRgba(color, 0.25));
-    gradient.addColorStop(0.7, hexToRgba(color, 0.15));
-    gradient.addColorStop(1, hexToRgba(color, 0.05)); // Почти прозрачный внизу
-
-    ctx.fillStyle = gradient;
-    // Рисуем прямоугольник от линии до низа экрана
-    // Это создает эффект "спускающегося" цвета сверху вниз
+    ctx.fillStyle = fillColor;
     ctx.fillRect(0, animatedFillHeight, canvas.width, fillAreaHeight);
-    
-    // Добавляем линию на границе для более четкого визуального эффекта движения
-    if (animatedFillHeight > 0 && animatedFillHeight < canvas.height) {
-      ctx.strokeStyle = hexToRgba(color, 0.5);
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(0, animatedFillHeight);
-      ctx.lineTo(canvas.width, animatedFillHeight);
-      ctx.stroke();
-    }
   } else {
-    // Если заполнение достигло 100%, заливаем весь экран
-    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, rgbaColor);
-    gradient.addColorStop(0.5, hexToRgba(color, 0.25));
-    gradient.addColorStop(1, hexToRgba(color, 0.1));
-    
-    ctx.fillStyle = gradient;
+    // Если линия достигла низа, заливаем весь экран темным цветом
+    ctx.fillStyle = fillColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+  
+  // Рисуем горизонтальную линию
+  if (animatedFillHeight > 0 && animatedFillHeight < canvas.height) {
+    ctx.strokeStyle = '#213448';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, animatedFillHeight);
+    ctx.lineTo(canvas.width, animatedFillHeight);
+    ctx.stroke();
   }
 };
 
 const animateCanvas = () => {
   drawCanvas();
+  drawTimeChars(); // Обновляем отрисовку цифр при каждом кадре анимации
   if (isRunning.value) {
     animationFrameId = requestAnimationFrame(animateCanvas);
   } else {
@@ -490,14 +383,149 @@ const animateCanvas = () => {
   }
 };
 
-const timeColor = computed(() => {
-  if (isRunning.value) {
-    return 'text-blue-600';
-  } else if (isPaused.value) {
-    return 'text-amber-600';
+// Удаляем timeColor, так как цвет цифр теперь управляется анимацией
+
+// Функция для отрисовки цифр на canvas с плавным изменением цвета
+const drawTimeChars = () => {
+  if (!timeCanvasRef.value || !canvasRef.value) {
+    return;
   }
-  return 'text-gray-800';
-});
+  
+  if (!timeChars.value || timeChars.value.length === 0) {
+    return;
+  }
+  
+  const timeCanvas = timeCanvasRef.value;
+  const ctx = timeCanvas.getContext('2d');
+  if (!ctx) {
+    return;
+  }
+
+  // Определяем размер шрифта в зависимости от размера экрана
+  const fontSize = window.innerWidth >= 768 
+    ? 128 // md:text-9xl
+    : window.innerWidth >= 640 
+      ? 96 // sm:text-8xl
+      : 72; // text-7xl
+  
+  ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'left';
+  
+  // Измеряем каждую цифру отдельно
+  let totalWidth = 0;
+  const charPositions: { x: number; y: number; width: number; char: string }[] = [];
+  
+  timeChars.value.forEach((char) => {
+    const metrics = ctx.measureText(char);
+    const width = metrics.width;
+    
+    charPositions.push({ 
+      x: totalWidth, 
+      y: 0, 
+      width, 
+      char
+    });
+    totalWidth += width;
+    
+    // Добавляем отступ для двоеточия
+    if (char === ':') {
+      const spacing = fontSize * 0.25;
+      totalWidth += spacing;
+    }
+  });
+  
+  if (totalWidth === 0) return;
+  
+  // Устанавливаем размеры canvas
+  const canvasHeight = fontSize * 1.5;
+  timeCanvas.width = totalWidth;
+  timeCanvas.height = canvasHeight;
+  timeCanvas.style.width = `${totalWidth}px`;
+  timeCanvas.style.height = `${canvasHeight}px`;
+  
+  // Переустанавливаем шрифт после изменения размеров
+  ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'left';
+  
+  // Получаем позицию canvas с цифрами
+  const timeCanvasRect = timeCanvas.getBoundingClientRect();
+  const canvasRect = canvasRef.value.getBoundingClientRect();
+  
+  // Вычисляем позицию линии относительно canvas с цифрами
+  const lineYViewport = canvasRect.top + animatedFillHeight;
+  const lineYRelative = lineYViewport - timeCanvasRect.top;
+  
+  // Очищаем canvas (прозрачный фон)
+  ctx.clearRect(0, 0, totalWidth, canvasHeight);
+  
+  // Цвета
+  const initialColor = '#EAE0CF'; // Изначальный цвет цифр
+  const fillColor = '#213448'; // Цвет цифр ниже линии
+  
+  // Позиция текста по вертикали (центрирование)
+  const textY = (canvasHeight - fontSize) / 2;
+  
+  // Проверяем валидность позиции линии
+  if (isNaN(lineYRelative) || !isFinite(lineYRelative)) {
+    // Рисуем все цифры изначальным цветом
+    charPositions.forEach((pos) => {
+      ctx.fillStyle = initialColor;
+      ctx.fillText(pos.char, pos.x, textY);
+    });
+    return;
+  }
+  
+  // Отрисовываем каждую цифру с градиентом
+  charPositions.forEach((pos) => {
+    const charTop = textY;
+    const charBottom = textY + fontSize;
+    
+    const gradient = ctx.createLinearGradient(pos.x, charTop, pos.x, charBottom);
+    
+    // Определяем позицию границы градиента
+    // Изначально boundaryPercent = 0 (вся цифра initialColor #EAE0CF - светлая)
+    // По мере движения линии сверху вниз, boundaryPercent увеличивается от 0 до 1
+    // Темный цвет (fillColor) появляется сверху и опускается вниз
+    let boundaryPercent: number;
+    
+    if (isNaN(lineYRelative) || !isFinite(lineYRelative) || lineYRelative < charTop) {
+      // Линия еще не дошла до цифры или не определена - вся цифра светлая (#EAE0CF)
+      boundaryPercent = 0;
+    } else if (lineYRelative > charBottom) {
+      // Линия уже прошла цифру - вся цифра темная
+      boundaryPercent = 1;
+    } else {
+      // Линия пересекает цифру - граница на позиции линии
+      const linePositionInChar = lineYRelative - charTop;
+      const charHeight = charBottom - charTop;
+      // Когда линия вверху цифры -> boundaryPercent = 0, когда внизу -> 1
+      boundaryPercent = Math.max(0, Math.min(1, linePositionInChar / charHeight));
+    }
+    
+    // Градиент с четкой границей: выше границы - fillColor (темный), на границе и ниже - initialColor (светлый #EAE0CF)
+    // Градиент движется сверху вниз: темный цвет опускается сверху
+    if (boundaryPercent <= 0) {
+      // Вся цифра светлая (#EAE0CF)
+      gradient.addColorStop(0, initialColor);
+      gradient.addColorStop(1, initialColor);
+    } else if (boundaryPercent >= 1) {
+      // Вся цифра темная
+      gradient.addColorStop(0, fillColor);
+      gradient.addColorStop(1, fillColor);
+    } else {
+      // Градиент с четкой границей
+      gradient.addColorStop(0, fillColor);
+      gradient.addColorStop(boundaryPercent, fillColor);
+      gradient.addColorStop(boundaryPercent, initialColor);
+      gradient.addColorStop(1, initialColor);
+    }
+    
+    ctx.fillStyle = gradient;
+    ctx.fillText(pos.char, pos.x, textY);
+  });
+};
 
 const loadTimer = (timerId: string) => {
   const foundTimer = timersStore.getTimerById(timerId);
@@ -512,6 +540,8 @@ const loadTimer = (timerId: string) => {
         animatedFillHeight = 0;
         lastUpdateTime = 0;
         drawCanvas();
+        // Обновляем отрисовку цифр при загрузке таймера
+        drawTimeChars();
       }
     });
   }
@@ -536,6 +566,8 @@ onMounted(() => {
         animatedFillHeight = canvasRef.value!.height * targetFillPercentage;
         lastUpdateTime = 0;
         drawCanvas();
+        // Обновляем отрисовку цифр после изменения размера
+        drawTimeChars();
       };
       window.addEventListener('resize', resizeHandler);
       
@@ -545,6 +577,11 @@ onMounted(() => {
       
       // Первоначальная отрисовка
       drawCanvas();
+      
+      // Инициализируем отрисовку цифр после небольшой задержки для готовности элементов
+      setTimeout(() => {
+        drawTimeChars();
+      }, 300);
       
       // Запускаем анимацию canvas
       animateCanvas();
@@ -560,9 +597,8 @@ watch(() => route.params.id, (newId) => {
 });
 
 onUnmounted(() => {
-  // Показываем таббар и элементы управления при размонтировании компонента (переход на другую страницу)
+  // Показываем таббар при размонтировании компонента (переход на другую страницу)
   setShouldHideTabBar(false);
-  setShouldHideTimerControls(false);
   
   if (intervalId !== null) {
     clearInterval(intervalId);
@@ -573,12 +609,13 @@ onUnmounted(() => {
   if (resizeHandler) {
     window.removeEventListener('resize', resizeHandler);
   }
-  pulseAnimations.forEach(anim => anim?.pause());
-  pulseAnimations = [];
 });
 
-// Обновляем canvas при изменении прогресса и состояния
-watch([progressColor, isRunning, isPaused], () => {
+// Обновляем canvas при изменении состояния
+watch([isRunning, isPaused], () => {
+  // Обновляем отрисовку цифр при изменении состояния
+  drawTimeChars();
+  
   // Перезапускаем анимацию если таймер запущен
   if (isRunning.value) {
     if (animationFrameId === null) {
@@ -614,9 +651,8 @@ const startTimer = () => {
   isRunning.value = true;
   isPaused.value = false;
   
-  // Скрываем таббар и элементы управления при запуске таймера
+  // Скрываем таббар при запуске таймера
   setShouldHideTabBar(true);
-  setShouldHideTimerControls(true);
   
   // Запускаем анимацию canvas
   if (animationFrameId === null) {
@@ -637,9 +673,8 @@ const pauseTimer = () => {
   isRunning.value = false;
   isPaused.value = true;
   
-  // Показываем таббар и элементы управления при паузе
+  // Показываем таббар при паузе
   setShouldHideTabBar(false);
-  setShouldHideTimerControls(false);
   
   if (intervalId !== null) {
     clearInterval(intervalId);
@@ -651,9 +686,8 @@ const resumeTimer = () => {
   isRunning.value = true;
   isPaused.value = false;
   
-  // Скрываем таббар и элементы управления при возобновлении таймера
+  // Скрываем таббар при возобновлении таймера
   setShouldHideTabBar(true);
-  setShouldHideTimerControls(true);
   
   // Запускаем анимацию canvas
   if (animationFrameId === null) {
@@ -674,9 +708,8 @@ const stopTimer = () => {
   isRunning.value = false;
   isPaused.value = false;
   
-  // Показываем таббар и элементы управления при остановке таймера
+  // Показываем таббар при остановке таймера
   setShouldHideTabBar(false);
-  setShouldHideTimerControls(false);
   
   if (intervalId !== null) {
     clearInterval(intervalId);
@@ -699,6 +732,8 @@ const stopTimer = () => {
         animatedFillHeight = 0;
         lastUpdateTime = 0;
         drawCanvas();
+        // Обновляем отрисовку цифр при остановке таймера
+        drawTimeChars();
       }
     });
   }
@@ -725,24 +760,6 @@ const goBack = () => {
   text-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   display: inline-block;
   transform-origin: center;
-}
-
-/* Размеры цифр таймера */
-.timer-char {
-  font-size: 6rem; /* 96px */
-  line-height: 1;
-}
-
-@media (min-width: 640px) {
-  .timer-char {
-    font-size: 8rem; /* 128px */
-  }
-}
-
-@media (min-width: 768px) {
-  .timer-char {
-    font-size: 10rem; /* 160px */
-  }
 }
 </style>
 
