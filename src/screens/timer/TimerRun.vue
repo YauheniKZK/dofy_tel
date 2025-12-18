@@ -638,7 +638,7 @@ const drawTimeChars = () => {
     }
 
     const colonWidth = ctx.measureText(":").width;
-    const colonSpacing = fontSize * 0.25;
+    const colonSpacing = fontSize * 0.5; // Отступ вокруг двоеточия для центрирования
 
     totalWidth = 0;
     charPositions = [];
@@ -646,17 +646,35 @@ const drawTimeChars = () => {
     timeChars.value.forEach((char) => {
       const metrics = ctx.measureText(char);
       const actualWidth = metrics.width;
-      const fixedWidth =
-        char === ":" ? colonWidth + colonSpacing : maxDigitWidth;
 
-      charPositions.push({
-        x: totalWidth,
-        y: 0,
-        width: actualWidth,
-        char,
-        fixedWidth,
-      });
-      totalWidth += fixedWidth;
+      if (char === ":") {
+        // Для двоеточия добавляем отступы до и после для центрирования
+        const spacingBefore = colonSpacing / 2;
+        const spacingAfter = colonSpacing / 2;
+
+        // Добавляем отступ перед двоеточием
+        totalWidth += spacingBefore;
+
+        charPositions.push({
+          x: totalWidth,
+          y: 0,
+          width: actualWidth,
+          char,
+          fixedWidth: colonWidth + spacingBefore + spacingAfter,
+        });
+
+        totalWidth += colonWidth + spacingAfter;
+      } else {
+        // Для цифр используем фиксированную ширину
+        charPositions.push({
+          x: totalWidth,
+          y: 0,
+          width: actualWidth,
+          char,
+          fixedWidth: maxDigitWidth,
+        });
+        totalWidth += maxDigitWidth;
+      }
     });
 
     if (totalWidth < targetWidth) {
@@ -681,7 +699,7 @@ const drawTimeChars = () => {
     }
 
     const colonWidth = ctx.measureText(":").width;
-    const colonSpacing = fontSize * 0.25;
+    const colonSpacing = fontSize * 0.5; // Отступ вокруг двоеточия для центрирования
 
     totalWidth = 0;
     charPositions = [];
@@ -689,17 +707,35 @@ const drawTimeChars = () => {
     timeChars.value.forEach((char) => {
       const metrics = ctx.measureText(char);
       const actualWidth = metrics.width;
-      const fixedWidth =
-        char === ":" ? colonWidth + colonSpacing : maxDigitWidth;
 
-      charPositions.push({
-        x: totalWidth,
-        y: 0,
-        width: actualWidth,
-        char,
-        fixedWidth,
-      });
-      totalWidth += fixedWidth;
+      if (char === ":") {
+        // Для двоеточия добавляем отступы до и после для центрирования
+        const spacingBefore = colonSpacing / 2;
+        const spacingAfter = colonSpacing / 2;
+
+        // Добавляем отступ перед двоеточием
+        totalWidth += spacingBefore;
+
+        charPositions.push({
+          x: totalWidth,
+          y: 0,
+          width: actualWidth,
+          char,
+          fixedWidth: colonWidth + spacingBefore + spacingAfter,
+        });
+
+        totalWidth += colonWidth + spacingAfter;
+      } else {
+        // Для цифр используем фиксированную ширину
+        charPositions.push({
+          x: totalWidth,
+          y: 0,
+          width: actualWidth,
+          char,
+          fixedWidth: maxDigitWidth,
+        });
+        totalWidth += maxDigitWidth;
+      }
     });
   }
 
