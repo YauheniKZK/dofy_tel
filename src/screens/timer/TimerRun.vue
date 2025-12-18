@@ -454,19 +454,31 @@ const drawCanvas = () => {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
 
-  // Устанавливаем размеры canvas на весь экран
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+  // Получаем devicePixelRatio для четкой отрисовки на Retina дисплеях
+  const dpr = window.devicePixelRatio || 1;
+  const displayWidth = window.innerWidth;
+  const displayHeight = window.innerHeight;
+
+  // Устанавливаем внутренние размеры canvas с учетом devicePixelRatio
+  canvas.width = displayWidth * dpr;
+  canvas.height = displayHeight * dpr;
+
+  // Устанавливаем CSS размеры (отображаемые размеры)
+  canvas.style.width = `${displayWidth}px`;
+  canvas.style.height = `${displayHeight}px`;
+
+  // Масштабируем контекст для четкой отрисовки
+  ctx.scale(dpr, dpr);
 
   // Очищаем canvas (прозрачный фон)
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.clearRect(0, 0, displayWidth, displayHeight);
 
   // Вычисляем целевую высоту линии
   // Линия движется сверху вниз по мере работы таймера
   const elapsedSeconds = totalSeconds.value - remainingSeconds.value;
   const targetFillPercentage =
     totalSeconds.value > 0 ? elapsedSeconds / totalSeconds.value : 0;
-  const targetFillHeight = canvas.height * targetFillPercentage;
+  const targetFillHeight = displayHeight * targetFillPercentage;
 
   // Плавная интерполяция к целевой высоте с использованием performance.now()
   const currentTime = performance.now();
@@ -494,7 +506,7 @@ const drawCanvas = () => {
   }
 
   // Ограничиваем значения
-  animatedFillHeight = Math.max(0, Math.min(canvas.height, animatedFillHeight));
+  animatedFillHeight = Math.max(0, Math.min(displayHeight, animatedFillHeight));
 
   // Цвета заливки из настроек таймера
   const timerColors = timer.value?.colors || DEFAULT_COLORS;
@@ -504,27 +516,27 @@ const drawCanvas = () => {
   // Рисуем заливку светлым цветом над линией
   if (animatedFillHeight > 0) {
     ctx.fillStyle = lightColor;
-    ctx.fillRect(0, 0, canvas.width, animatedFillHeight);
+    ctx.fillRect(0, 0, displayWidth, animatedFillHeight);
   }
 
   // Рисуем заливку темным цветом под линией
-  if (animatedFillHeight < canvas.height) {
-    const fillAreaHeight = canvas.height - animatedFillHeight;
+  if (animatedFillHeight < displayHeight) {
+    const fillAreaHeight = displayHeight - animatedFillHeight;
     ctx.fillStyle = fillColor;
-    ctx.fillRect(0, animatedFillHeight, canvas.width, fillAreaHeight);
+    ctx.fillRect(0, animatedFillHeight, displayWidth, fillAreaHeight);
   } else {
     // Если линия достигла низа, заливаем весь экран темным цветом
     ctx.fillStyle = fillColor;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, displayWidth, displayHeight);
   }
 
   // Рисуем горизонтальную линию
-  if (animatedFillHeight > 0 && animatedFillHeight < canvas.height) {
+  if (animatedFillHeight > 0 && animatedFillHeight < displayHeight) {
     ctx.strokeStyle = fillColor;
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(0, animatedFillHeight);
-    ctx.lineTo(canvas.width, animatedFillHeight);
+    ctx.lineTo(displayWidth, animatedFillHeight);
     ctx.stroke();
   }
 };
@@ -559,10 +571,13 @@ const drawTimeChars = () => {
   }
 
   const timeCanvas = timeCanvasRef.value;
-  const ctx = timeCanvas.getContext("2d");
+  const ctx = timeCanvas.getContext("2d", { alpha: true });
   if (!ctx) {
     return;
   }
+
+  // Получаем devicePixelRatio для четкой отрисовки на Retina дисплеях
+  const dpr = window.devicePixelRatio || 1;
 
   const currentTimeString = formattedTime.value;
 
@@ -581,11 +596,15 @@ const drawTimeChars = () => {
     const totalWidth = cachedTotalWidth;
     const canvasHeight = cachedCanvasHeight;
 
-    // Устанавливаем размеры canvas из кеша
-    timeCanvas.width = totalWidth;
-    timeCanvas.height = canvasHeight;
+    // Устанавливаем внутренние размеры canvas с учетом devicePixelRatio
+    timeCanvas.width = totalWidth * dpr;
+    timeCanvas.height = canvasHeight * dpr;
+    // Устанавливаем CSS размеры (отображаемые размеры)
     timeCanvas.style.width = `${totalWidth}px`;
     timeCanvas.style.height = `${canvasHeight}px`;
+
+    // Масштабируем контекст для четкой отрисовки
+    ctx.scale(dpr, dpr);
 
     ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
     ctx.textBaseline = "top";
@@ -627,29 +646,35 @@ const drawTimeChars = () => {
   let minFontSize = 20;
   let maxFontSize = Math.floor(window.innerWidth * 0.3);
 
+  // Временно устанавливаем размеры canvas для измерения текста
+  // Используем реальные размеры без масштабирования для измерения
+  const tempCanvas = document.createElement("canvas");
+  const tempCtx = tempCanvas.getContext("2d");
+  if (!tempCtx) return;
+
   while (
     iterations < maxIterations &&
     Math.abs(totalWidth - targetWidth) > targetWidth * 0.05
   ) {
     fontSize = Math.floor((minFontSize + maxFontSize) / 2);
-    ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
-    ctx.textBaseline = "top";
-    ctx.textAlign = "left";
+    tempCtx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
+    tempCtx.textBaseline = "top";
+    tempCtx.textAlign = "left";
 
     let maxDigitWidth = 0;
     for (let i = 0; i <= 9; i++) {
-      const metrics = ctx.measureText(String(i));
+      const metrics = tempCtx.measureText(String(i));
       maxDigitWidth = Math.max(maxDigitWidth, metrics.width);
     }
 
-    const colonWidth = ctx.measureText(":").width;
+    const colonWidth = tempCtx.measureText(":").width;
     const colonSpacing = fontSize * 0.3; // Отступ вокруг двоеточия для центрирования
 
     totalWidth = 0;
     charPositions = [];
 
     timeChars.value.forEach((char) => {
-      const metrics = ctx.measureText(char);
+      const metrics = tempCtx.measureText(char);
       const actualWidth = metrics.width;
 
       if (char === ":") {
@@ -693,24 +718,24 @@ const drawTimeChars = () => {
 
   if (iterations >= maxIterations) {
     fontSize = Math.floor((minFontSize + maxFontSize) / 2);
-    ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
-    ctx.textBaseline = "top";
-    ctx.textAlign = "left";
+    tempCtx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
+    tempCtx.textBaseline = "top";
+    tempCtx.textAlign = "left";
 
     let maxDigitWidth = 0;
     for (let i = 0; i <= 9; i++) {
-      const metrics = ctx.measureText(String(i));
+      const metrics = tempCtx.measureText(String(i));
       maxDigitWidth = Math.max(maxDigitWidth, metrics.width);
     }
 
-    const colonWidth = ctx.measureText(":").width;
+    const colonWidth = tempCtx.measureText(":").width;
     const colonSpacing = fontSize * 0.3; // Отступ вокруг двоеточия для центрирования
 
     totalWidth = 0;
     charPositions = [];
 
     timeChars.value.forEach((char) => {
-      const metrics = ctx.measureText(char);
+      const metrics = tempCtx.measureText(char);
       const actualWidth = metrics.width;
 
       if (char === ":") {
@@ -755,10 +780,15 @@ const drawTimeChars = () => {
 
   // Устанавливаем размеры canvas
   const canvasHeight = cachedCanvasHeight;
-  timeCanvas.width = totalWidth;
-  timeCanvas.height = canvasHeight;
+  // Устанавливаем внутренние размеры canvas с учетом devicePixelRatio
+  timeCanvas.width = totalWidth * dpr;
+  timeCanvas.height = canvasHeight * dpr;
+  // Устанавливаем CSS размеры (отображаемые размеры)
   timeCanvas.style.width = `${totalWidth}px`;
   timeCanvas.style.height = `${canvasHeight}px`;
+
+  // Масштабируем контекст для четкой отрисовки
+  ctx.scale(dpr, dpr);
 
   // Переустанавливаем шрифт после изменения размеров
   ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
@@ -1042,7 +1072,7 @@ onMounted(() => {
         const elapsedSeconds = totalSeconds.value - remainingSeconds.value;
         const targetFillPercentage =
           totalSeconds.value > 0 ? elapsedSeconds / totalSeconds.value : 0;
-        animatedFillHeight = canvasRef.value!.height * targetFillPercentage;
+        animatedFillHeight = window.innerHeight * targetFillPercentage;
         lastUpdateTime = 0;
         drawCanvas();
         // Обновляем отрисовку цифр после изменения размера
