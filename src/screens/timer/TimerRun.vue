@@ -97,69 +97,25 @@
         </Transition>
       </div>
 
-      <!-- Иконка кофейной чашки (показывается только когда таймер работает) -->
+      <!-- Иконка таймера (показывается только когда таймер работает и иконка не отключена) -->
       <!-- Вынесена за пределы контейнера с z-10, чтобы быть поверх canvas -->
       <Transition name="fade">
         <div
-          v-if="isRunning && timer"
-          ref="coffeeIconRef"
+          v-if="isRunning && timer && selectedIcon && timer.iconId !== 'none'"
+          ref="timerIconRef"
           class="fixed left-1/2 transform -translate-x-1/2 flex justify-center pointer-events-none"
           style="z-index: 20"
           :style="{
-            top: coffeeIconTop + 'px',
+            top: timerIconTop + 'px',
           }"
-          @transitionend="updateCoffeeGradient"
+          @transitionend="updateTimerIconGradient"
         >
-          <svg
-            :key="`coffee-${coffeeGradientStop}-${coffeeGradientColors.lightColor}-${coffeeGradientColors.fillColor}`"
-            width="96"
-            height="96"
-            viewBox="0 0 470 470"
-            xmlns="http://www.w3.org/2000/svg"
-            class="transition-opacity duration-300"
-            :style="{
-              opacity: 0.9,
-              animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-            }"
-          >
-            <defs>
-              <linearGradient
-                id="coffeeGradient"
-                x1="0"
-                :y1="coffeeGradientTop"
-                x2="0"
-                :y2="coffeeGradientBottom"
-                gradientUnits="userSpaceOnUse"
-              >
-                <stop
-                  v-for="(stop, index) in coffeeGradientStops"
-                  :key="index"
-                  :offset="stop.offset"
-                  :stop-color="stop.color"
-                />
-              </linearGradient>
-            </defs>
-            <g fill="url(#coffeeGradient)">
-              <path
-                d="m205,131.873c0,4.142 3.358,7.5 7.5,7.5s7.5-3.358 7.5-7.5c0-7.744 1.831-11.253 4.149-15.696 2.742-5.255 5.851-11.212 5.851-22.634 0-11.423-3.108-17.381-5.851-22.637-2.318-4.443-4.149-7.953-4.149-15.698 0-7.745 1.831-11.255 4.149-15.698 2.743-5.257 5.851-11.215 5.851-22.637 0-4.142-3.358-7.5-7.5-7.5s-7.5,3.358-7.5,7.5c0,7.745-1.831,11.255-4.149,15.698-2.743,5.257-5.851,11.215-5.851,22.637s3.108,17.38 5.851,22.637c2.318,4.443 4.149,7.954 4.149,15.699 0,7.743-1.831,11.252-4.149,15.695-2.743,5.255-5.851,11.212-5.851,22.634z"
-              />
-              <path
-                d="m265,131.873c0,4.142 3.358,7.5 7.5,7.5s7.5-3.358 7.5-7.5c0-7.744 1.831-11.253 4.149-15.696 2.742-5.255 5.851-11.212 5.851-22.634 0-11.423-3.108-17.381-5.851-22.637-2.318-4.443-4.149-7.953-4.149-15.698 0-7.745 1.831-11.255 4.149-15.698 2.743-5.257 5.851-11.215 5.851-22.637 0-4.142-3.358-7.5-7.5-7.5s-7.5,3.358-7.5,7.5c0,7.745-1.831,11.255-4.149,15.698-2.743,5.257-5.851,11.215-5.851,22.637s3.108,17.38 5.851,22.637c2.318,4.443 4.149,7.954 4.149,15.699 0,7.743-1.831,11.252-4.149,15.695-2.743,5.255-5.851,11.212-5.851,22.634z"
-              />
-              <path
-                d="m462.5,410.627h-10.169c-0.009,0-419.831,0-419.831,0-4.142,0-7.5,3.358-7.5,7.5s3.358,7.5 7.5,7.5h4.343l4.325,15.137c3.182,11.138 14.748,19.863 26.332,19.863h360c11.584,0 23.15-8.725 26.332-19.862l4.325-15.138h4.343c4.142,0 7.5-3.358 7.5-7.5s-3.358-7.5-7.5-7.5zm-23.091,26.017c-1.343,4.701-7.02,8.983-11.909,8.983h-360c-4.89,0-10.566-4.282-11.909-8.983l-3.148-11.017h390.114l-3.148,11.017z"
-              />
-              <path
-                d="m93.088,275.263h9.412c2.229,0 4.343-0.992 5.768-2.706s2.014-3.974 1.606-6.165c-1.575-8.47-2.374-17.139-2.374-25.765v-48.754c0-4.142-3.358-7.5-7.5-7.5h-58.668c-3.08,0-5.847,1.883-6.977,4.749-2.89,7.329-4.355,15.084-4.355,23.052 0,34.787 28.301,63.089 63.088,63.089zm-46.367-75.89h45.779v41.254c0,6.552 0.417,13.125 1.241,19.636h-0.653c-26.516,0-48.088-21.573-48.088-48.089 0-4.377 0.578-8.664 1.721-12.801z"
-              />
-              <path
-                d="M93.088,305.263h13.494c25.253,55.062,80.024,90.364,140.918,90.364c85.467,0,155-69.533,155-155v-78.754   c0-4.142-3.358-7.5-7.5-7.5H23.879c-2.397,0-4.649,1.146-6.061,3.083C6.161,173.45,0,192.371,0,212.174   C0,263.503,41.759,305.263,93.088,305.263z M27.803,169.373H347.5v32.5c0,4.142,3.358,7.5,7.5,7.5s7.5-3.358,7.5-7.5v-32.5h25   v71.254c0,77.196-62.804,140-140,140c-56.518,0-107.196-33.667-129.109-85.772c-1.17-2.783-3.895-4.592-6.914-4.592H93.088   C50.03,290.263,15,255.232,15,212.174C15,196.823,19.415,182.104,27.803,169.373z"
-              />
-              <path
-                d="m247.5,355.627c63.411,0 115-51.589 115-115v-8.754c0-4.142-3.358-7.5-7.5-7.5s-7.5,3.358-7.5,7.5v8.754c0,55.14-44.86,100-100,100-4.142,0-7.5,3.358-7.5,7.5s3.358,7.5 7.5,7.5z"
-              />
-            </g>
-          </svg>
+          <TimerIcon
+            :icon-id="timer.iconId || 'coffee'"
+            :gradient-stop="timerIconGradientStop"
+            :colors="timerIconGradientColors"
+            view-box="0 0 470 470"
+          />
         </div>
       </Transition>
 
@@ -307,8 +263,10 @@ import { useRoute, useRouter } from "vue-router";
 import { NButton, useNotification } from "naive-ui";
 import { useTimersStore, DEFAULT_COLORS } from "@/stores/timers";
 import SelectTimerModal from "@/components/timer/SelectTimerModal.vue";
+import TimerIcon from "@/components/timer/TimerIcon.vue";
 import type { Timer } from "@/stores/timers";
 import { useTabBarVisibility } from "@/composables/useTabBarVisibility";
+import { getIconById, getDefaultIcon } from "@/config/timerIcons";
 
 const notification = useNotification();
 
@@ -329,8 +287,15 @@ const areElementsVisible = computed(
 );
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 const timeCanvasRef = ref<HTMLCanvasElement | null>(null);
-const coffeeIconRef = ref<HTMLElement | null>(null);
+const timerIconRef = ref<HTMLElement | null>(null);
 const timeCharRefs = ref<(HTMLElement | null)[]>([]);
+
+// Выбранная иконка для таймера
+const selectedIcon = computed(() => {
+  if (!timer.value) return null;
+  const iconId = timer.value.iconId || "coffee";
+  return getIconById(iconId) || getDefaultIcon();
+});
 let intervalId: number | null = null;
 let animationFrameId: number | null = null;
 let animatedFillHeight = 0; // Текущая анимированная высота заполнения
@@ -487,8 +452,8 @@ const animateChars = () => {
   drawCanvas();
   drawTimeChars();
 
-  // Обновляем градиент иконки кофе
-  updateCoffeeGradient();
+  // Обновляем градиент иконки таймера
+  updateTimerIconGradient();
 
   // Продолжаем анимацию, если есть активные анимации
   if (hasActiveAnimations) {
@@ -514,8 +479,8 @@ const progressText = computed(() => {
   return `Прогресс: ${progressPercentage.value}%`;
 });
 
-// Градиент для иконки кофе
-const coffeeGradientColors = computed(() => {
+// Градиент для иконки таймера
+const timerIconGradientColors = computed(() => {
   const timerColors = timer.value?.colors || DEFAULT_COLORS;
   return {
     lightColor: timerColors.lightColor,
@@ -523,82 +488,45 @@ const coffeeGradientColors = computed(() => {
   };
 });
 
-const coffeeGradientTop = computed(() => {
-  return 0;
+// Реактивное значение для позиции линии относительно иконки таймера
+const timerIconLinePosition = ref(0);
+const timerIconTop = ref(0);
+
+const timerIconGradientStop = computed(() => {
+  return timerIconLinePosition.value;
 });
 
-const coffeeGradientBottom = computed(() => {
-  return 470; // viewBox высота
-});
-
-// Реактивное значение для позиции линии относительно иконки кофе
-const coffeeLinePosition = ref(0);
-const coffeeIconTop = ref(0);
-
-const coffeeGradientStop = computed(() => {
-  return coffeeLinePosition.value;
-});
-
-// Computed свойства для градиента иконки (аналогично логике для цифр)
-const coffeeGradientStops = computed(() => {
-  const stop = coffeeGradientStop.value;
-  const lightColor = coffeeGradientColors.value.lightColor;
-  const fillColor = coffeeGradientColors.value.fillColor;
-
-  if (stop <= 0) {
-    // Весь светлый цвет (линия выше иконки)
-    return [
-      { offset: 0, color: lightColor },
-      { offset: 1, color: lightColor },
-    ];
-  } else if (stop >= 1) {
-    // Весь темный цвет (линия ниже иконки)
-    return [
-      { offset: 0, color: fillColor },
-      { offset: 1, color: fillColor },
-    ];
-  } else {
-    // Градиент с границей на позиции линии
-    return [
-      { offset: 0, color: fillColor },
-      { offset: stop, color: fillColor },
-      { offset: stop, color: lightColor },
-      { offset: 1, color: lightColor },
-    ];
-  }
-});
-
-// Функция для обновления позиции линии относительно иконки кофе
+// Функция для обновления позиции линии относительно иконки таймера
 // Использует ту же логику, что и для цифр
-const updateCoffeeGradient = () => {
+const updateTimerIconGradient = () => {
   if (!canvasRef.value || !timeCanvasRef.value) {
-    coffeeLinePosition.value = 0;
+    timerIconLinePosition.value = 0;
     return;
   }
 
   // Получаем позицию canvas с цифрами для размещения иконки под ним
   const timeCanvasRect = timeCanvasRef.value.getBoundingClientRect();
-  coffeeIconTop.value = timeCanvasRect.bottom + 24; // 24px отступ от таймера
+  timerIconTop.value = timeCanvasRect.bottom + 24; // 24px отступ от таймера
 
   // Если иконка еще не отрисована, просто устанавливаем позицию
-  if (!coffeeIconRef.value) {
-    coffeeLinePosition.value = 0;
+  if (!timerIconRef.value) {
+    timerIconLinePosition.value = 0;
     return;
   }
 
-  const coffeeRect = coffeeIconRef.value.getBoundingClientRect();
+  const iconRect = timerIconRef.value.getBoundingClientRect();
   const canvasRect = canvasRef.value.getBoundingClientRect();
 
   // Вычисляем позицию линии относительно иконки (та же логика, что для цифр)
   const lineYViewport = canvasRect.top + animatedFillHeight;
-  const iconTop = coffeeRect.top;
-  const iconBottom = coffeeRect.bottom;
+  const iconTop = iconRect.top;
+  const iconBottom = iconRect.bottom;
   const lineYRelative = lineYViewport - iconTop;
 
   // Вычисляем высоту иконки
   const iconHeight = iconBottom - iconTop;
   if (iconHeight === 0) {
-    coffeeLinePosition.value = 0;
+    timerIconLinePosition.value = 0;
     return;
   }
 
@@ -615,7 +543,7 @@ const updateCoffeeGradient = () => {
     boundaryPercent = Math.max(0, Math.min(1, lineYRelative / iconHeight));
   }
 
-  coffeeLinePosition.value = boundaryPercent;
+  timerIconLinePosition.value = boundaryPercent;
 };
 
 // Удаляем progressColor, так как он больше не используется
@@ -1213,7 +1141,7 @@ const loadTimer = (timerId: string) => {
     cachedTimeString = "";
     // Устанавливаем начальную высоту заполнения на 0% (цвет еще не спустился)
     // Устанавливаем начальное значение градиента иконки (весь светлый цвет)
-    coffeeLinePosition.value = 0;
+    timerIconLinePosition.value = 0;
     nextTick(() => {
       if (canvasRef.value) {
         animatedFillHeight = 0;
@@ -1221,8 +1149,8 @@ const loadTimer = (timerId: string) => {
         drawCanvas();
         // Обновляем отрисовку цифр при загрузке таймера
         drawTimeChars();
-        // Обновляем градиент иконки кофе
-        updateCoffeeGradient();
+        // Обновляем градиент иконки таймера
+        updateTimerIconGradient();
       }
     });
   }
@@ -1255,8 +1183,8 @@ onMounted(() => {
         drawCanvas();
         // Обновляем отрисовку цифр после изменения размера
         drawTimeChars();
-        // Обновляем градиент иконки кофе
-        updateCoffeeGradient();
+        // Обновляем градиент иконки таймера
+        updateTimerIconGradient();
       };
       window.addEventListener("resize", resizeHandler);
 
@@ -1264,7 +1192,7 @@ onMounted(() => {
       animatedFillHeight = 0;
       lastUpdateTime = 0;
       // Устанавливаем начальное значение градиента иконки (весь светлый цвет)
-      coffeeLinePosition.value = 0;
+      timerIconLinePosition.value = 0;
 
       // Первоначальная отрисовка
       drawCanvas();
@@ -1272,8 +1200,8 @@ onMounted(() => {
       // Инициализируем отрисовку цифр после небольшой задержки для готовности элементов
       setTimeout(() => {
         drawTimeChars();
-        // Обновляем градиент иконки кофе после отрисовки цифр
-        updateCoffeeGradient();
+        // Обновляем градиент иконки таймера после отрисовки цифр
+        updateTimerIconGradient();
       }, 300);
 
       // Запускаем анимацию canvas
@@ -1294,7 +1222,7 @@ watch(
 
 // Watch на появление иконки в DOM для установки правильной позиции
 watch(
-  () => coffeeIconRef.value,
+  () => timerIconRef.value,
   (newRef) => {
     if (newRef && isRunning.value) {
       // Иконка появилась в DOM, устанавливаем позицию
@@ -1302,10 +1230,10 @@ watch(
         if (timeCanvasRef.value) {
           const timeCanvasRect = timeCanvasRef.value.getBoundingClientRect();
           if (timeCanvasRect.height > 0) {
-            coffeeIconTop.value = timeCanvasRect.bottom + 24;
+            timerIconTop.value = timeCanvasRect.bottom + 24;
           }
         }
-        updateCoffeeGradient();
+        updateTimerIconGradient();
       });
     }
   }
@@ -1339,17 +1267,17 @@ watch([isRunning, isPaused], () => {
       if (timeCanvasRef.value) {
         const timeCanvasRect = timeCanvasRef.value.getBoundingClientRect();
         if (timeCanvasRect.height > 0) {
-          coffeeIconTop.value = timeCanvasRect.bottom + 24;
+          timerIconTop.value = timeCanvasRect.bottom + 24;
         }
       }
       // Затем обновляем градиент после небольшой задержки для гарантии отрисовки иконки
       setTimeout(() => {
-        updateCoffeeGradient();
+        updateTimerIconGradient();
       }, 150);
     });
   } else {
-    // Обновляем градиент иконки кофе при остановке/паузе
-    updateCoffeeGradient();
+    // Обновляем градиент иконки таймера при остановке/паузе
+    updateTimerIconGradient();
   }
 
   // Перезапускаем анимацию если таймер запущен
@@ -1398,12 +1326,12 @@ const startTimer = () => {
     if (timeCanvasRef.value) {
       const timeCanvasRect = timeCanvasRef.value.getBoundingClientRect();
       if (timeCanvasRect.height > 0) {
-        coffeeIconTop.value = timeCanvasRect.bottom + 24;
+        timerIconTop.value = timeCanvasRect.bottom + 24;
       }
     }
     // Затем обновляем градиент после небольшой задержки для гарантии отрисовки иконки
     setTimeout(() => {
-      updateCoffeeGradient();
+      updateTimerIconGradient();
     }, 150);
   });
 
@@ -1448,12 +1376,12 @@ const resumeTimer = () => {
     if (timeCanvasRef.value) {
       const timeCanvasRect = timeCanvasRef.value.getBoundingClientRect();
       if (timeCanvasRect.height > 0) {
-        coffeeIconTop.value = timeCanvasRect.bottom + 24;
+        timerIconTop.value = timeCanvasRect.bottom + 24;
       }
     }
     // Затем обновляем градиент после небольшой задержки для гарантии отрисовки иконки
     setTimeout(() => {
-      updateCoffeeGradient();
+      updateTimerIconGradient();
     }, 150);
   });
 
@@ -1499,7 +1427,7 @@ const stopTimer = () => {
     remainingSeconds.value = total;
     // Сбрасываем анимацию заполнения на 0% (цвет возвращается наверх)
     // Устанавливаем градиент иконки в начальное состояние (весь светлый цвет)
-    coffeeLinePosition.value = 0;
+    timerIconLinePosition.value = 0;
     nextTick(() => {
       if (canvasRef.value) {
         animatedFillHeight = 0;
@@ -1507,8 +1435,8 @@ const stopTimer = () => {
         drawCanvas();
         // Обновляем отрисовку цифр при остановке таймера
         drawTimeChars();
-        // Обновляем градиент иконки кофе
-        updateCoffeeGradient();
+        // Обновляем градиент иконки таймера
+        updateTimerIconGradient();
       }
     });
   }

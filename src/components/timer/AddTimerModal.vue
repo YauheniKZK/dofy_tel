@@ -237,6 +237,75 @@
               </div>
             </div>
           </div>
+
+          <!-- Выбор иконки -->
+          <div>
+            <label class="block text-sm font-semibold mb-2 text-gray-700">
+              Иконка таймера
+            </label>
+            <div class="grid grid-cols-4 gap-3">
+              <button
+                v-for="icon in activeIcons"
+                :key="icon.id"
+                type="button"
+                class="relative h-16 rounded-lg border-2 transition-all duration-200 hover:scale-105 active:scale-95 flex items-center justify-center overflow-hidden"
+                :class="
+                  form.iconId === icon.id
+                    ? 'border-blue-500 shadow-md bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                "
+                @click="selectIcon(icon.id)"
+              >
+                <!-- SVG превью иконки или иконка "без иконки" -->
+                <div
+                  v-if="icon.id === 'none'"
+                  class="w-10 h-10 flex items-center justify-center text-gray-400"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+                  </svg>
+                </div>
+                <div
+                  v-else
+                  class="w-10 h-10 flex items-center justify-center"
+                  v-html="getIconPreview(icon)"
+                ></div>
+                <!-- Индикатор выбора -->
+                <div
+                  v-if="form.iconId === icon.id"
+                  class="absolute top-1 right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center z-10"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="white"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </div>
+              </button>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">
+              Выберите иконку, которая будет отображаться во время работы таймера
+            </p>
+          </div>
           </div>
         </div>
 
@@ -288,6 +357,7 @@ import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { NInput, NInputNumber, NButton, NDrawer, NDrawerContent } from 'naive-ui';
 import type { Timer, TimerColors } from '@/stores/timers';
 import { COLOR_PRESETS, DEFAULT_COLORS } from '@/stores/timers';
+import { getActiveIcons, getDefaultIcon } from '@/config/timerIcons';
 
 const props = defineProps<{
   showModal: boolean;
@@ -296,8 +366,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: [];
-  save: [timer: { name: string; duration: { hours: number; minutes: number; seconds: number }; colors: { lightColor: string; fillColor: string } }];
-  update: [id: string, timer: { name: string; duration: { hours: number; minutes: number; seconds: number }; colors: { lightColor: string; fillColor: string } }];
+  save: [timer: { name: string; duration: { hours: number; minutes: number; seconds: number }; colors: { lightColor: string; fillColor: string }; iconId?: string }];
+  update: [id: string, timer: { name: string; duration: { hours: number; minutes: number; seconds: number }; colors: { lightColor: string; fillColor: string }; iconId?: string }];
 }>();
 
 const windowWidth = ref(window.innerWidth);
@@ -318,6 +388,13 @@ onUnmounted(() => {
   window.removeEventListener('resize', handleResize);
 });
 
+const activeIcons = getActiveIcons();
+// Получаем иконку по умолчанию, исключая "none"
+const defaultIcon = computed(() => {
+  const icons = getActiveIcons().filter(icon => icon.id !== 'none');
+  return icons.length > 0 ? icons[0] : undefined;
+});
+
 const form = ref({
   name: '',
   duration: {
@@ -329,6 +406,7 @@ const form = ref({
     lightColor: DEFAULT_COLORS.lightColor,
     fillColor: DEFAULT_COLORS.fillColor,
   } as TimerColors,
+  iconId: defaultIcon.value?.id,
 });
 
 const selectedTemplate = ref<string | null>(null);
@@ -348,6 +426,7 @@ watch(() => props.editingTimer, (timer) => {
         seconds: timer.duration.seconds,
       },
       colors: timer.colors || DEFAULT_COLORS,
+      iconId: timer.iconId || defaultIcon.value?.id,
     };
     selectedTemplate.value = null;
     customColorSelected.value = false;
@@ -361,6 +440,7 @@ watch(() => props.editingTimer, (timer) => {
         seconds: 0,
       },
       colors: { ...DEFAULT_COLORS },
+      iconId: defaultIcon.value?.id,
     };
     selectedTemplate.value = null;
     customColorSelected.value = false;
@@ -464,6 +544,36 @@ const selectColorPreset = (preset: TimerColors) => {
   customColorSelected.value = false;
 };
 
+const selectIcon = (iconId: string) => {
+  form.value.iconId = iconId;
+};
+
+// Получаем превью иконки для отображения в селекторе
+const getIconPreview = (icon: { path: string; id: string }) => {
+  // Пропускаем опцию "без иконки"
+  if (icon.id === 'none' || !icon.path) {
+    return '';
+  }
+  
+  // Если path содержит SVG содержимое, извлекаем его и масштабируем
+  if (icon.path.startsWith('<svg') || icon.path.includes('<?xml')) {
+    // Парсим SVG и создаем превью
+    const svgMatch = icon.path.match(/<svg[^>]*>([\s\S]*)<\/svg>/i);
+    if (svgMatch) {
+      const svgAttributes = icon.path.match(/<svg([^>]*)>/i)?.[1] || '';
+      const viewBoxMatch = svgAttributes.match(/viewBox="([^"]*)"/i);
+      const viewBox = viewBoxMatch ? viewBoxMatch[1] : '0 0 470 470';
+      
+      return `
+        <svg width="40" height="40" viewBox="${viewBox}" xmlns="http://www.w3.org/2000/svg" style="fill: currentColor; color: #4B5563;">
+          ${svgMatch[1]}
+        </svg>
+      `;
+    }
+  }
+  return '';
+};
+
 const handleSave = async () => {
   if (!isFormValid.value) {
     showErrors.value = true;
@@ -479,6 +589,7 @@ const handleSave = async () => {
     name: form.value.name,
     duration: { ...form.value.duration },
     colors: { ...form.value.colors },
+    iconId: form.value.iconId,
   };
 
   if (props.editingTimer) {
@@ -496,6 +607,7 @@ const handleSave = async () => {
       seconds: 0,
     },
     colors: { ...DEFAULT_COLORS },
+    iconId: defaultIcon.value?.id,
   };
   selectedTemplate.value = null;
   customColorSelected.value = false;

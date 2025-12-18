@@ -15,6 +15,7 @@ export interface Timer {
     seconds: number;
   };
   colors?: TimerColors; // Опциональное поле для обратной совместимости
+  iconId?: string; // ID выбранной иконки таймера
   createdAt: number;
 }
 
