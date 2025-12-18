@@ -28,7 +28,7 @@ export const COLOR_PRESETS: TimerColors[] = [
 ];
 
 // Цвета по умолчанию
-export const DEFAULT_COLORS: TimerColors = COLOR_PRESETS[0];
+export const DEFAULT_COLORS: TimerColors = COLOR_PRESETS[0]!;
 
 const STORAGE_KEY = 'timers';
 
