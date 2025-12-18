@@ -277,6 +277,30 @@ const charAnimations = ref<Map<number, CharAnimation>>(new Map());
 const previousChars = ref<string[]>([]);
 const ANIMATION_DURATION = 300; // миллисекунды
 
+// Кеш для вычислений размера шрифта и позиций
+let cachedFontSize: number | null = null;
+let cachedCharPositions:
+  | {
+      x: number;
+      y: number;
+      width: number;
+      char: string;
+      fixedWidth: number;
+    }[]
+  | null = null;
+let cachedTotalWidth: number | null = null;
+let cachedCanvasHeight: number | null = null;
+let cachedTimeString: string = "";
+
+// Easing функции для плавной анимации
+const easeOutCubic = (t: number): number => {
+  return 1 - Math.pow(1 - t, 3);
+};
+
+const easeOutExpo = (t: number): number => {
+  return t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
+};
+
 const totalSeconds = computed(() => {
   if (!timer.value) return 0;
   return timersStore.getTotalSeconds(timer.value);
@@ -340,12 +364,12 @@ watch(
         newChar !== ":" &&
         oldChar !== ":"
       ) {
-        // Запускаем анимацию для этой позиции
+        // Запускаем анимацию для этой позиции с использованием performance.now()
         charAnimations.value.set(index, {
           oldChar: oldChar,
           newChar: newChar,
           progress: 0,
-          startTime: Date.now(),
+          startTime: performance.now(),
         });
       }
     });
@@ -367,17 +391,20 @@ watch(
   }
 );
 
-// Функция для анимации цифр
+// Функция для анимации цифр с улучшенной плавностью
 const animateChars = () => {
-  const now = Date.now();
+  const now = performance.now();
   let hasActiveAnimations = false;
 
-  // Обновляем прогресс всех анимаций
+  // Обновляем прогресс всех анимаций с easing функцией
   charAnimations.value.forEach((anim, index) => {
     const elapsed = now - anim.startTime;
-    anim.progress = Math.min(elapsed / ANIMATION_DURATION, 1);
+    const rawProgress = Math.min(elapsed / ANIMATION_DURATION, 1);
 
-    if (anim.progress < 1) {
+    // Применяем easing функцию для более плавной анимации
+    anim.progress = easeOutCubic(rawProgress);
+
+    if (rawProgress < 1) {
       hasActiveAnimations = true;
     } else {
       // Анимация завершена, удаляем её
@@ -437,25 +464,33 @@ const drawCanvas = () => {
     totalSeconds.value > 0 ? elapsedSeconds / totalSeconds.value : 0;
   const targetFillHeight = canvas.height * targetFillPercentage;
 
-  // Плавная интерполяция к целевой высоте
-  const currentTime = Date.now();
+  // Плавная интерполяция к целевой высоте с использованием performance.now()
+  const currentTime = performance.now();
   if (lastUpdateTime === 0) {
     lastUpdateTime = currentTime;
     animatedFillHeight = targetFillHeight;
   }
 
+  // Ограничиваем deltaTime для стабильности (максимум 50ms)
   const deltaTime = Math.min(currentTime - lastUpdateTime, 50);
   lastUpdateTime = currentTime;
 
-  // Плавное движение линии
-  const lerpFactor = Math.min(deltaTime / 200, 0.2);
-  animatedFillHeight += (targetFillHeight - animatedFillHeight) * lerpFactor;
+  // Улучшенный lerping с easing функцией для более плавного движения
+  const distance = targetFillHeight - animatedFillHeight;
+  const absDistance = Math.abs(distance);
+
+  // Используем адаптивный lerp factor в зависимости от расстояния
+  if (absDistance > 0.1) {
+    // Для больших расстояний используем более быстрое движение
+    const lerpFactor = Math.min(deltaTime / 150, 0.3);
+    animatedFillHeight += distance * lerpFactor;
+  } else {
+    // Для малых расстояний плавно доводим до цели
+    animatedFillHeight = targetFillHeight;
+  }
 
   // Ограничиваем значения
   animatedFillHeight = Math.max(0, Math.min(canvas.height, animatedFillHeight));
-
-  // Обновляем отрисовку цифр с эффектом изменения цвета
-  drawTimeChars();
 
   // Цвета заливки
   const fillColor = "#213448"; // Темный цвет под линией
@@ -495,8 +530,10 @@ const animateCanvas = () => {
     return;
   }
 
+  // Рисуем canvas и цифры
   drawCanvas();
-  drawTimeChars(); // Обновляем отрисовку цифр при каждом кадре анимации
+  drawTimeChars();
+
   if (isRunning.value) {
     animationFrameId = requestAnimationFrame(animateCanvas);
   } else {
@@ -506,7 +543,7 @@ const animateCanvas = () => {
 
 // Удаляем timeColor, так как цвет цифр теперь управляется анимацией
 
-// Функция для отрисовки цифр на canvas с плавным изменением цвета
+// Функция для отрисовки цифр на canvas с плавным изменением цвета и кешированием
 const drawTimeChars = () => {
   if (!timeCanvasRef.value || !canvasRef.value) {
     return;
@@ -522,13 +559,56 @@ const drawTimeChars = () => {
     return;
   }
 
-  // Целевая ширина текста - 70% от ширины экрана
+  const currentTimeString = formattedTime.value;
+
+  // Используем кеш, если время не изменилось и нет активных анимаций
+  if (
+    cachedTimeString === currentTimeString &&
+    cachedCharPositions !== null &&
+    cachedFontSize !== null &&
+    cachedTotalWidth !== null &&
+    cachedCanvasHeight !== null &&
+    charAnimations.value.size === 0
+  ) {
+    // Используем кешированные значения
+    const fontSize = cachedFontSize;
+    const charPositions = cachedCharPositions;
+    const totalWidth = cachedTotalWidth;
+    const canvasHeight = cachedCanvasHeight;
+
+    // Устанавливаем размеры canvas из кеша
+    timeCanvas.width = totalWidth;
+    timeCanvas.height = canvasHeight;
+    timeCanvas.style.width = `${totalWidth}px`;
+    timeCanvas.style.height = `${canvasHeight}px`;
+
+    ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
+    ctx.textBaseline = "top";
+    ctx.textAlign = "left";
+
+    // Получаем позицию canvas с цифрами
+    const timeCanvasRect = timeCanvas.getBoundingClientRect();
+    const canvasRect = canvasRef.value.getBoundingClientRect();
+    const lineYViewport = canvasRect.top + animatedFillHeight;
+    const lineYRelative = lineYViewport - timeCanvasRect.top;
+
+    // Очищаем canvas
+    ctx.clearRect(0, 0, totalWidth, canvasHeight);
+
+    // Рисуем цифры с кешированными позициями
+    drawCharsWithGradient(
+      ctx,
+      charPositions,
+      fontSize,
+      canvasHeight,
+      lineYRelative
+    );
+    return;
+  }
+
+  // Пересчитываем размеры и позиции
   const targetWidth = window.innerWidth * 0.7;
-
-  // Начальный размер шрифта (примерно 10% от ширины экрана для одного символа)
   let fontSize = Math.floor(window.innerWidth * 0.1);
-
-  // Итеративно подбираем размер шрифта, чтобы текст занимал примерно 70% ширины экрана
   let totalWidth = 0;
   let charPositions: {
     x: number;
@@ -539,8 +619,6 @@ const drawTimeChars = () => {
   }[] = [];
   let iterations = 0;
   const maxIterations = 20;
-
-  // Бинарный поиск оптимального размера шрифта
   let minFontSize = 20;
   let maxFontSize = Math.floor(window.innerWidth * 0.3);
 
@@ -549,31 +627,25 @@ const drawTimeChars = () => {
     Math.abs(totalWidth - targetWidth) > targetWidth * 0.05
   ) {
     fontSize = Math.floor((minFontSize + maxFontSize) / 2);
-
     ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
     ctx.textBaseline = "top";
     ctx.textAlign = "left";
 
-    // Определяем максимальную ширину цифры (измеряем все цифры 0-9)
     let maxDigitWidth = 0;
     for (let i = 0; i <= 9; i++) {
       const metrics = ctx.measureText(String(i));
       maxDigitWidth = Math.max(maxDigitWidth, metrics.width);
     }
 
-    // Измеряем ширину двоеточия
     const colonWidth = ctx.measureText(":").width;
     const colonSpacing = fontSize * 0.25;
 
-    // Рассчитываем позиции с фиксированной шириной
     totalWidth = 0;
     charPositions = [];
 
     timeChars.value.forEach((char) => {
       const metrics = ctx.measureText(char);
       const actualWidth = metrics.width;
-
-      // Используем фиксированную ширину для цифр, реальную для двоеточий
       const fixedWidth =
         char === ":" ? colonWidth + colonSpacing : maxDigitWidth;
 
@@ -596,14 +668,12 @@ const drawTimeChars = () => {
     iterations++;
   }
 
-  // Если не удалось найти точное значение, используем последний рассчитанный размер
   if (iterations >= maxIterations) {
     fontSize = Math.floor((minFontSize + maxFontSize) / 2);
     ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
     ctx.textBaseline = "top";
     ctx.textAlign = "left";
 
-    // Определяем максимальную ширину цифры
     let maxDigitWidth = 0;
     for (let i = 0; i <= 9; i++) {
       const metrics = ctx.measureText(String(i));
@@ -635,8 +705,15 @@ const drawTimeChars = () => {
 
   if (totalWidth === 0) return;
 
+  // Обновляем кеш
+  cachedFontSize = fontSize;
+  cachedCharPositions = [...charPositions];
+  cachedTotalWidth = totalWidth;
+  cachedCanvasHeight = fontSize * 1.5;
+  cachedTimeString = currentTimeString;
+
   // Устанавливаем размеры canvas
-  const canvasHeight = fontSize * 1.5;
+  const canvasHeight = cachedCanvasHeight;
   timeCanvas.width = totalWidth;
   timeCanvas.height = canvasHeight;
   timeCanvas.style.width = `${totalWidth}px`;
@@ -658,6 +735,30 @@ const drawTimeChars = () => {
   // Очищаем canvas (прозрачный фон)
   ctx.clearRect(0, 0, totalWidth, canvasHeight);
 
+  // Рисуем цифры с градиентом
+  drawCharsWithGradient(
+    ctx,
+    charPositions,
+    fontSize,
+    canvasHeight,
+    lineYRelative
+  );
+};
+
+// Вынесенная функция для отрисовки цифр с градиентом (для переиспользования)
+const drawCharsWithGradient = (
+  ctx: CanvasRenderingContext2D,
+  charPositions: {
+    x: number;
+    y: number;
+    width: number;
+    char: string;
+    fixedWidth: number;
+  }[],
+  fontSize: number,
+  canvasHeight: number,
+  lineYRelative: number
+) => {
   // Цвета
   const initialColor = "#EAE0CF"; // Изначальный цвет цифр
   const fillColor = "#213448"; // Цвет цифр ниже линии
@@ -744,8 +845,8 @@ const drawTimeChars = () => {
           oldGradient.addColorStop(1, initialColor);
         }
 
-        // Прозрачность старой цифры уменьшается по мере движения вниз
-        ctx.globalAlpha = 1 - animation.progress;
+        // Прозрачность старой цифры уменьшается по мере движения вниз с easing
+        ctx.globalAlpha = easeOutExpo(1 - animation.progress);
         ctx.fillStyle = oldGradient;
         ctx.fillText(animation.oldChar, oldCharX, oldCharTop);
         ctx.globalAlpha = 1;
@@ -793,8 +894,8 @@ const drawTimeChars = () => {
           newGradient.addColorStop(1, initialColor);
         }
 
-        // Прозрачность новой цифры увеличивается по мере появления
-        ctx.globalAlpha = animation.progress;
+        // Прозрачность новой цифры увеличивается по мере появления с easing
+        ctx.globalAlpha = easeOutExpo(animation.progress);
         ctx.fillStyle = newGradient;
         ctx.fillText(animation.newChar, newCharX, newCharTop);
         ctx.globalAlpha = 1;
@@ -858,6 +959,12 @@ const loadTimer = (timerId: string) => {
     charAnimations.value.clear();
     previousTime.value = "";
     previousChars.value = [];
+    // Очищаем кеш
+    cachedFontSize = null;
+    cachedCharPositions = null;
+    cachedTotalWidth = null;
+    cachedCanvasHeight = null;
+    cachedTimeString = "";
     // Устанавливаем начальную высоту заполнения на 0% (цвет еще не спустился)
     nextTick(() => {
       if (canvasRef.value) {
@@ -882,6 +989,13 @@ onMounted(() => {
     if (canvasRef.value) {
       // Обработка изменения размера окна
       resizeHandler = () => {
+        // Очищаем кеш при изменении размера окна
+        cachedFontSize = null;
+        cachedCharPositions = null;
+        cachedTotalWidth = null;
+        cachedCanvasHeight = null;
+        cachedTimeString = "";
+
         // При изменении размера окна пересчитываем анимацию
         const elapsedSeconds = totalSeconds.value - remainingSeconds.value;
         const targetFillPercentage =
