@@ -638,7 +638,7 @@ const drawTimeChars = () => {
     }
 
     const colonWidth = ctx.measureText(":").width;
-    const colonSpacing = fontSize * 0.5; // Отступ вокруг двоеточия для центрирования
+    const colonSpacing = fontSize * 0.3; // Отступ вокруг двоеточия для центрирования
 
     totalWidth = 0;
     charPositions = [];
@@ -699,7 +699,7 @@ const drawTimeChars = () => {
     }
 
     const colonWidth = ctx.measureText(":").width;
-    const colonSpacing = fontSize * 0.5; // Отступ вокруг двоеточия для центрирования
+    const colonSpacing = fontSize * 0.3; // Отступ вокруг двоеточия для центрирования
 
     totalWidth = 0;
     charPositions = [];
