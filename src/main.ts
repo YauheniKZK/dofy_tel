@@ -18,6 +18,36 @@ try {
   console.warn("WebApp SDK not available:", e);
 }
 
+// Предотвращение масштабирования через жесты
+document.addEventListener('gesturestart', (e) => {
+  e.preventDefault();
+});
+
+document.addEventListener('gesturechange', (e) => {
+  e.preventDefault();
+});
+
+document.addEventListener('gestureend', (e) => {
+  e.preventDefault();
+});
+
+// Предотвращение двойного тапа для увеличения
+let lastTouchEnd = 0;
+document.addEventListener('touchend', (event) => {
+  const now = Date.now();
+  if (now - lastTouchEnd <= 300) {
+    event.preventDefault();
+  }
+  lastTouchEnd = now;
+}, false);
+
+// Предотвращение масштабирования через колесо мыши с Ctrl/Cmd
+document.addEventListener('wheel', (e) => {
+  if (e.ctrlKey || e.metaKey) {
+    e.preventDefault();
+  }
+}, { passive: false });
+
 // Создаем и монтируем приложение
 const app = createApp(App);
 
