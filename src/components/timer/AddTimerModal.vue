@@ -357,7 +357,7 @@ import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { NInput, NInputNumber, NButton, NDrawer, NDrawerContent } from 'naive-ui';
 import type { Timer, TimerColors } from '@/stores/timers';
 import { COLOR_PRESETS, DEFAULT_COLORS } from '@/stores/timers';
-import { getActiveIcons, getDefaultIcon } from '@/config/timerIcons';
+import { getActiveIcons } from '@/config/timerIcons';
 
 const props = defineProps<{
   showModal: boolean;

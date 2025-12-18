@@ -14,7 +14,6 @@
 import { ref, computed, watch, onMounted } from "vue";
 import { getIconById } from "@/config/timerIcons";
 import type { TimerColors } from "@/stores/timers";
-import { DEFAULT_COLORS } from "@/stores/timers";
 
 const props = defineProps<{
   iconId?: string;
@@ -103,7 +102,6 @@ const iconSvgWithGradient = computed(() => {
   const svgMatch = svg.match(/<svg[^>]*>([\s\S]*)<\/svg>/i);
   if (!svgMatch) return "";
 
-  const svgAttributes = svg.match(/<svg([^>]*)>/i)?.[1] || "";
   const svgInnerContent = svgMatch[1];
 
   // Создаем новый SVG с градиентом
