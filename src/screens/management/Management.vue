@@ -1,5 +1,5 @@
 <template>
-  <div class="p-4 min-h-full">
+  <div class="p-4">
     <h1
       class="text-2xl font-bold mb-6"
       :class="isDark ? 'text-gray-100' : 'text-gray-900'"

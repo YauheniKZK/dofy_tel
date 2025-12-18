@@ -50,14 +50,15 @@ const navigateTo = (path: string) => {
 </script>
 
 <template>
-  <div class="flex flex-col grow h-full">
-    <router-view
-      class="flex flex-col grow overflow-auto"
+  <div class="flex flex-col grow h-full overflow-hidden">
+    <div
+      class="flex-1 overflow-y-auto"
       :style="{
         paddingBottom: `${64 + 16 + safeAreaInsets.bottom}px`,
-        paddingTop: `${safeAreaInsets.top}px`,
       }"
-    />
+    >
+      <router-view />
+    </div>
 
     <div
       class="tabbar-container fixed backdrop-blur-md border-t shadow-2xl rounded-2xl z-50 transition-all duration-300 ease-in-out"
