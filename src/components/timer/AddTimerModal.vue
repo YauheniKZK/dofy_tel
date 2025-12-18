@@ -118,6 +118,125 @@
               Установите длительность таймера
             </p>
           </div>
+
+          <!-- Цвета анимации -->
+          <div>
+            <label class="block text-sm font-semibold mb-2 text-gray-700">
+              Цвета анимации таймера
+            </label>
+            
+            <!-- Готовые варианты -->
+            <div class="mb-4">
+              <p class="text-xs text-gray-500 mb-2">Готовые варианты:</p>
+              <div class="grid grid-cols-2 gap-2">
+                <button
+                  v-for="(preset, index) in colorPresets"
+                  :key="index"
+                  type="button"
+                  class="relative h-16 rounded-lg border-2 transition-all duration-200 hover:scale-105 active:scale-95"
+                  :class="
+                    isPresetSelected(preset)
+                      ? 'border-blue-500 shadow-md'
+                      : 'border-gray-200 hover:border-gray-300'
+                  "
+                  @click="selectColorPreset(preset)"
+                >
+                  <!-- Превью цветов -->
+                  <div class="absolute inset-0 rounded-lg overflow-hidden">
+                    <div
+                      class="h-1/2 w-full"
+                      :style="{ backgroundColor: preset.lightColor }"
+                    ></div>
+                    <div
+                      class="h-1/2 w-full"
+                      :style="{ backgroundColor: preset.fillColor }"
+                    ></div>
+                  </div>
+                  <!-- Индикатор выбора -->
+                  <div
+                    v-if="isPresetSelected(preset)"
+                    class="absolute top-1 right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="white"
+                      stroke-width="3"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <!-- Кастомные цвета -->
+            <div class="space-y-3">
+              <p class="text-xs text-gray-500 mb-2">Или настройте самостоятельно:</p>
+              
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-gray-500 mb-2">
+                    Верхний цвет
+                  </label>
+                  <div class="flex gap-2">
+                    <input
+                      type="color"
+                      v-model="form.colors.lightColor"
+                      class="w-12 h-10 rounded border border-gray-300 cursor-pointer"
+                      @input="customColorSelected = true"
+                    />
+                    <n-input
+                      v-model:value="form.colors.lightColor"
+                      placeholder="#EAE0CF"
+                      size="medium"
+                      @update:value="customColorSelected = true"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label class="block text-xs font-medium text-gray-500 mb-2">
+                    Нижний цвет
+                  </label>
+                  <div class="flex gap-2">
+                    <input
+                      type="color"
+                      v-model="form.colors.fillColor"
+                      class="w-12 h-10 rounded border border-gray-300 cursor-pointer"
+                      @input="customColorSelected = true"
+                    />
+                    <n-input
+                      v-model:value="form.colors.fillColor"
+                      placeholder="#213448"
+                      size="medium"
+                      @update:value="customColorSelected = true"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Превью кастомных цветов -->
+              <div class="mt-3">
+                <p class="text-xs text-gray-500 mb-2">Превью:</p>
+                <div class="h-20 rounded-lg border border-gray-200 overflow-hidden">
+                  <div
+                    class="h-1/2 w-full"
+                    :style="{ backgroundColor: form.colors.lightColor }"
+                  ></div>
+                  <div
+                    class="h-1/2 w-full"
+                    :style="{ backgroundColor: form.colors.fillColor }"
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div>
           </div>
         </div>
 
@@ -167,7 +286,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { NInput, NInputNumber, NButton, NDrawer, NDrawerContent } from 'naive-ui';
-import type { Timer } from '@/stores/timers';
+import type { Timer, TimerColors } from '@/stores/timers';
+import { COLOR_PRESETS, DEFAULT_COLORS } from '@/stores/timers';
 
 const props = defineProps<{
   showModal: boolean;
@@ -176,8 +296,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: [];
-  save: [timer: { name: string; duration: { hours: number; minutes: number; seconds: number } }];
-  update: [id: string, timer: { name: string; duration: { hours: number; minutes: number; seconds: number } }];
+  save: [timer: { name: string; duration: { hours: number; minutes: number; seconds: number }; colors: { lightColor: string; fillColor: string } }];
+  update: [id: string, timer: { name: string; duration: { hours: number; minutes: number; seconds: number }; colors: { lightColor: string; fillColor: string } }];
 }>();
 
 const windowWidth = ref(window.innerWidth);
@@ -205,11 +325,17 @@ const form = ref({
     minutes: 0,
     seconds: 0,
   },
+  colors: {
+    lightColor: DEFAULT_COLORS.lightColor,
+    fillColor: DEFAULT_COLORS.fillColor,
+  } as TimerColors,
 });
 
 const selectedTemplate = ref<string | null>(null);
 const showErrors = ref(false);
 const isSaving = ref(false);
+const customColorSelected = ref(false);
+const colorPresets = COLOR_PRESETS;
 
 // Загружаем данные таймера при редактировании
 watch(() => props.editingTimer, (timer) => {
@@ -221,8 +347,10 @@ watch(() => props.editingTimer, (timer) => {
         minutes: timer.duration.minutes,
         seconds: timer.duration.seconds,
       },
+      colors: timer.colors || DEFAULT_COLORS,
     };
     selectedTemplate.value = null;
+    customColorSelected.value = false;
   } else {
     // Сброс формы при создании нового таймера
     form.value = {
@@ -232,8 +360,10 @@ watch(() => props.editingTimer, (timer) => {
         minutes: 0,
         seconds: 0,
       },
+      colors: { ...DEFAULT_COLORS },
     };
     selectedTemplate.value = null;
+    customColorSelected.value = false;
   }
   showErrors.value = false;
 }, { immediate: true });
@@ -321,6 +451,19 @@ const handleDrawerClose = (show: boolean) => {
   }
 };
 
+const isPresetSelected = (preset: TimerColors): boolean => {
+  if (customColorSelected.value) return false;
+  return (
+    preset.lightColor === form.value.colors.lightColor &&
+    preset.fillColor === form.value.colors.fillColor
+  );
+};
+
+const selectColorPreset = (preset: TimerColors) => {
+  form.value.colors = { ...preset };
+  customColorSelected.value = false;
+};
+
 const handleSave = async () => {
   if (!isFormValid.value) {
     showErrors.value = true;
@@ -335,6 +478,7 @@ const handleSave = async () => {
   const timerData = {
     name: form.value.name,
     duration: { ...form.value.duration },
+    colors: { ...form.value.colors },
   };
 
   if (props.editingTimer) {
@@ -351,8 +495,10 @@ const handleSave = async () => {
       minutes: 0,
       seconds: 0,
     },
+    colors: { ...DEFAULT_COLORS },
   };
   selectedTemplate.value = null;
+  customColorSelected.value = false;
   showErrors.value = false;
   isSaving.value = false;
   emit('close');

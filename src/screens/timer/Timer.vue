@@ -250,6 +250,7 @@ const formatDuration = (duration: {
 const handleAddTimer = (timer: {
   name: string;
   duration: { hours: number; minutes: number; seconds: number };
+  colors: { lightColor: string; fillColor: string };
 }) => {
   timersStore.addTimer(timer);
 };
@@ -257,6 +258,7 @@ const handleAddTimer = (timer: {
 const handleUpdateTimer = (id: string, timer: {
   name: string;
   duration: { hours: number; minutes: number; seconds: number };
+  colors: { lightColor: string; fillColor: string };
 }) => {
   timersStore.updateTimer(id, timer);
 };

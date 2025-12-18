@@ -19,21 +19,25 @@
             </h1>
           </div>
           <n-button
-            type="default"
+            type="primary"
             size="medium"
             block
             @click="showSelectModal = true"
-            class="h-10 text-sm font-medium"
+            class="h-12 text-sm font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+            style="
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              border: none;
+            "
           >
             <template #icon>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="18"
-                height="18"
+                width="20"
+                height="20"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                stroke-width="2"
+                stroke-width="2.5"
                 stroke-linecap="round"
                 stroke-linejoin="round"
               >
@@ -235,7 +239,7 @@ import {
 } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { NButton, useNotification } from "naive-ui";
-import { useTimersStore } from "@/stores/timers";
+import { useTimersStore, DEFAULT_COLORS } from "@/stores/timers";
 import SelectTimerModal from "@/components/timer/SelectTimerModal.vue";
 import type { Timer } from "@/stores/timers";
 import { useTabBarVisibility } from "@/composables/useTabBarVisibility";
@@ -444,7 +448,7 @@ const progressText = computed(() => {
 
 // Canvas анимация
 const drawCanvas = () => {
-  if (!canvasRef.value) return;
+  if (!canvasRef.value || !timer.value) return;
 
   const canvas = canvasRef.value;
   const ctx = canvas.getContext("2d");
@@ -492,9 +496,10 @@ const drawCanvas = () => {
   // Ограничиваем значения
   animatedFillHeight = Math.max(0, Math.min(canvas.height, animatedFillHeight));
 
-  // Цвета заливки
-  const fillColor = "#213448"; // Темный цвет под линией
-  const lightColor = "#EAE0CF"; // Светлый цвет над линией
+  // Цвета заливки из настроек таймера
+  const timerColors = timer.value?.colors || DEFAULT_COLORS;
+  const fillColor = timerColors.fillColor; // Темный цвет под линией
+  const lightColor = timerColors.lightColor; // Светлый цвет над линией
 
   // Рисуем заливку светлым цветом над линией
   if (animatedFillHeight > 0) {
@@ -515,7 +520,7 @@ const drawCanvas = () => {
 
   // Рисуем горизонтальную линию
   if (animatedFillHeight > 0 && animatedFillHeight < canvas.height) {
-    ctx.strokeStyle = "#213448";
+    ctx.strokeStyle = fillColor;
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(0, animatedFillHeight);
@@ -795,9 +800,10 @@ const drawCharsWithGradient = (
   canvasHeight: number,
   lineYRelative: number
 ) => {
-  // Цвета
-  const initialColor = "#EAE0CF"; // Изначальный цвет цифр
-  const fillColor = "#213448"; // Цвет цифр ниже линии
+  // Цвета из настроек таймера
+  const timerColors = timer.value?.colors || DEFAULT_COLORS;
+  const initialColor = timerColors.lightColor; // Изначальный цвет цифр
+  const fillColor = timerColors.fillColor; // Цвет цифр ниже линии
 
   // Позиция текста по вертикали (центрирование)
   const textY = (canvasHeight - fontSize) / 2;

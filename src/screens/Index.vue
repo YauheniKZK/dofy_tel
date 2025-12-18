@@ -50,9 +50,10 @@ const navigateTo = (path: string) => {
 </script>
 
 <template>
-  <div class="flex flex-col grow h-full overflow-hidden">
+  <div class="flex flex-col h-full overflow-hidden">
     <div
-      class="flex-1 overflow-y-auto"
+      class="flex-1 overflow-y-auto min-h-0"
+      style="height: 0;"
       :style="{
         paddingBottom: `${64 + 16 + safeAreaInsets.bottom}px`,
       }"
@@ -103,5 +104,11 @@ const navigateTo = (path: string) => {
 :deep(.n-button__content) {
   flex-direction: column;
   gap: 0.25rem;
+}
+
+.overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 </style>

@@ -7,12 +7,12 @@ const { safeAreaInsets } = useSafeArea();
 
 <template>
   <div 
-    class="flex flex-col grow"
+    class="flex flex-col grow h-full overflow-hidden"
     :style="{
       paddingTop: `${16 + safeAreaInsets.top}px`,
     }"
   >
-    <RouterView class="flex flex-col grow" />
+    <RouterView class="flex flex-col grow h-full overflow-hidden" />
   </div>
 </template>
 
