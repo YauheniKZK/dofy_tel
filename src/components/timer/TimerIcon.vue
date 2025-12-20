@@ -11,10 +11,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, nextTick, onUnmounted } from "vue";
-import { getIconById } from "@/config/timerIcons";
+import { ref, computed, watch, onMounted, nextTick } from "vue";
+import { getIconById, replaceIconColors } from "@/config/timerIcons";
 import type { TimerColors } from "@/stores/timers";
-import { animate, svg, stagger } from "animejs";
 
 const props = defineProps<{
   iconId?: string;
@@ -28,8 +27,6 @@ const iconContainerRef = ref<HTMLElement | null>(null);
 const gradientId = ref(
   `timerIconGradient-${Math.random().toString(36).substr(2, 9)}`
 );
-let animationInstances: any[] = [];
-let hasAnimated = false; // Флаг для отслеживания, была ли уже запущена анимация
 
 // Загружаем SVG содержимое
 const loadIcon = async () => {
@@ -44,25 +41,48 @@ const loadIcon = async () => {
     return;
   }
 
+  let rawSvgContent = "";
+
   // Если path уже содержит SVG содержимое (raw string), используем его напрямую
   // Иначе пытаемся загрузить по URL
   if (icon.path.startsWith("<svg") || icon.path.includes("<?xml")) {
-    iconSvgContent.value = icon.path;
+    rawSvgContent = icon.path;
   } else {
     try {
       // Используем fetch для загрузки SVG по URL
       const response = await fetch(icon.path);
       if (response.ok) {
-        const svgText = await response.text();
-        iconSvgContent.value = svgText;
+        rawSvgContent = await response.text();
       } else {
         console.error(`Failed to load icon: ${icon.path}`);
         iconSvgContent.value = "";
+        return;
       }
     } catch (error) {
       console.error(`Error loading icon: ${error}`);
       iconSvgContent.value = "";
+      return;
     }
+  }
+  
+  // Проверяем, содержит ли SVG скрипты (например, SVGator анимация)
+  const hasScript = /<script[\s\S]*?<\/script>/i.test(rawSvgContent);
+  
+  // Для SVG со скриптами заменяем цвета в строке (включая JSON данные анимации)
+  // Это нужно сделать ДО выполнения скрипта, чтобы анимация использовала правильные цвета
+  // Для обычных SVG тоже заменяем цвета сразу
+  if (
+    (icon.lightColors && icon.lightColors.length > 0) ||
+    (icon.fillColors && icon.fillColors.length > 0)
+  ) {
+    iconSvgContent.value = replaceIconColors(
+      rawSvgContent,
+      icon,
+      props.colors.lightColor,
+      props.colors.fillColor
+    );
+  } else {
+    iconSvgContent.value = rawSvgContent;
   }
 };
 
@@ -99,6 +119,55 @@ const iconSvgWithGradient = computed(() => {
   // Парсим SVG и заменяем fill на градиент
   let svg = iconSvgContent.value;
 
+  // Проверяем, содержит ли SVG скрипты (например, SVGator анимация)
+  const hasScript = /<script[\s\S]*?<\/script>/i.test(svg);
+  
+  // Для SVG со скриптами проверяем и добавляем размеры, если их нет
+  // Также применяем цвета из настроек
+  if (hasScript) {
+    const svgTagMatch = svg.match(/<svg[^>]*>/i);
+    if (svgTagMatch) {
+      let needsWidth = !svgTagMatch[0].match(/width=["']/i);
+      let needsHeight = !svgTagMatch[0].match(/height=["']/i);
+      
+      // Если нужны размеры, извлекаем их из viewBox
+      if (needsWidth || needsHeight) {
+        const viewBoxMatch = svg.match(/viewBox=["']([^"']+)["']/i);
+        if (viewBoxMatch) {
+          const viewBoxValues = viewBoxMatch[1].split(/\s+/);
+          if (viewBoxValues.length >= 4) {
+            const width = viewBoxValues[2];
+            const height = viewBoxValues[3];
+            
+            // Добавляем width и height к тегу SVG
+            let newSvgTag = svgTagMatch[0];
+            const attributes: string[] = [];
+            
+            if (needsWidth) {
+              // Добавляем единицы измерения, если их нет
+              const widthValue = width.includes('px') || width.includes('%') || width.includes('em') ? width : `${width}px`;
+              attributes.push(`width="${widthValue}"`);
+            }
+            if (needsHeight) {
+              // Добавляем единицы измерения, если их нет
+              const heightValue = height.includes('px') || height.includes('%') || height.includes('em') ? height : `${height}px`;
+              attributes.push(`height="${heightValue}"`);
+            }
+            
+            if (attributes.length > 0) {
+              // Вставляем атрибуты перед закрывающей скобкой тега
+              newSvgTag = newSvgTag.replace(/>$/, ` ${attributes.join(" ")}>`);
+              // Заменяем старый тег на новый
+              svg = svg.replace(/<svg[^>]*>/i, newSvgTag);
+            }
+          }
+        }
+      }
+    }
+    
+    return svg;
+  }
+
   // Удаляем существующие defs если есть
   svg = svg.replace(/<defs>[\s\S]*?<\/defs>/gi, "");
 
@@ -107,10 +176,43 @@ const iconSvgWithGradient = computed(() => {
   if (!svgMatch) return "";
 
   const svgInnerContent = svgMatch[1];
+  
+  // Извлекаем width и height из оригинального SVG
+  const svgTagMatch = svg.match(/<svg[^>]*>/i);
+  let svgWidth = "";
+  let svgHeight = "";
+  
+  if (svgTagMatch) {
+    const widthMatch = svgTagMatch[0].match(/width=["']([^"']+)["']/i);
+    const heightMatch = svgTagMatch[0].match(/height=["']([^"']+)["']/i);
+    
+    if (widthMatch) {
+      svgWidth = widthMatch[1];
+    }
+    if (heightMatch) {
+      svgHeight = heightMatch[1];
+    }
+  }
+  
+  // Если width и height не найдены, используем размеры из viewBox
+  if (!svgWidth || !svgHeight) {
+    const viewBoxMatch = svg.match(/viewBox=["']([^"']+)["']/i);
+    if (viewBoxMatch) {
+      const viewBoxValues = viewBoxMatch[1].split(/\s+/);
+      if (viewBoxValues.length >= 4) {
+        svgWidth = viewBoxValues[2];
+        svgHeight = viewBoxValues[3];
+      }
+    }
+  }
+  
+  // Если все еще нет размеров, используем значения по умолчанию
+  if (!svgWidth) svgWidth = "144";
+  if (!svgHeight) svgHeight = "144";
 
   // Создаем новый SVG с градиентом
   const newSvg = `
-    <svg width="144" height="144" viewBox="${viewBox}" xmlns="http://www.w3.org/2000/svg" class="transition-opacity duration-300">
+    <svg width="${svgWidth}" height="${svgHeight}" viewBox="${viewBox}" xmlns="http://www.w3.org/2000/svg" class="transition-opacity duration-300">
       <defs>
         <linearGradient id="${gradientId.value}" x1="0" y1="0" x2="0" y2="${
     viewBox.split(" ")[3] || "470"
@@ -129,170 +231,353 @@ const iconSvgWithGradient = computed(() => {
   return newSvg;
 });
 
-// Анимация SVG path с помощью animejs createDrawable
-const animateIconPaths = () => {
-  // Запускаем анимацию только один раз
-  if (hasAnimated) {
-    return;
-  }
-
-  if (!iconContainerRef.value) {
-    console.log("animateIconPaths: iconContainerRef is null");
-    return;
-  }
-
-  // Ждем несколько тиков и небольшую задержку, чтобы DOM полностью обновился после v-html
-  nextTick(() => {
-    setTimeout(() => {
-      if (!iconContainerRef.value) {
-        console.log("animateIconPaths: iconContainerRef is null after timeout");
-        return;
-      }
-
-      const svgElement = iconContainerRef.value.querySelector("svg");
-      if (!svgElement) {
-        console.log("animateIconPaths: SVG element not found");
-        return;
-      }
-
-      // Находим группу и временно убираем fill, чтобы stroke был виден
-      const group = svgElement.querySelector(
-        `g[id^='timer-icon-group-']`
-      ) as SVGGElement;
-      if (group) {
-        const originalGroupFill = group.getAttribute("fill");
-        if (originalGroupFill) {
-          group.setAttribute("data-original-group-fill", originalGroupFill);
+// Применяем цвета из настроек к SVG со скриптами после выполнения скрипта
+const applyColorsToAnimatedSvg = () => {
+  if (!iconContainerRef.value) return;
+  
+  const icon = getIconById(props.iconId);
+  if (!icon) return;
+  
+  // Проверяем, нужно ли применять замену цветов
+  const needsColorReplacement = 
+    (icon.lightColors && icon.lightColors.length > 0) ||
+    (icon.fillColors && icon.fillColors.length > 0);
+  
+  if (!needsColorReplacement) return;
+  
+  const svgElement = iconContainerRef.value.querySelector("svg");
+  if (!svgElement) return;
+  
+  // Применяем замену цветов напрямую к элементам в DOM
+  // Это не нарушит работу анимации, так как мы не заменяем весь SVG
+  
+  // Создаем функцию для нормализации цвета для сравнения
+  const normalizeColor = (color: string): string => {
+    return color.toLowerCase().replace(/#/g, "").trim();
+  };
+  
+  // Применяем замену для lightColors
+  if (icon.lightColors && icon.lightColors.length > 0) {
+    icon.lightColors.forEach((originalColor) => {
+      const normalizedOriginal = normalizeColor(originalColor);
+      const lightColor = props.colors.lightColor;
+      
+      // Находим все элементы с этим цветом
+      const allElements = svgElement.querySelectorAll("*");
+      allElements.forEach((element) => {
+        const el = element as SVGElement;
+        const fill = el.getAttribute("fill");
+        const stroke = el.getAttribute("stroke");
+        
+        // Заменяем fill
+        if (fill && normalizeColor(fill) === normalizedOriginal) {
+          el.setAttribute("fill", lightColor);
         }
-        group.setAttribute("fill", "none"); // Убираем fill из группы во время анимации
-      }
-
-      // Находим все path элементы
-      const paths = svgElement.querySelectorAll("path");
-      console.log(`animateIconPaths: Found ${paths.length} path elements`);
-
-      if (paths.length === 0) {
-        console.log("animateIconPaths: No path elements found");
-        return;
-      }
-
-      // Останавливаем предыдущие анимации если есть
-      animationInstances.forEach((anim) => {
-        try {
-          if (anim && typeof anim.pause === "function") {
-            anim.pause();
+        
+        // Заменяем stroke
+        if (stroke && normalizeColor(stroke) === normalizedOriginal) {
+          el.setAttribute("stroke", lightColor);
+        }
+        
+        // Также проверяем RGB формат в атрибутах стиля
+        const style = el.getAttribute("style");
+        if (style) {
+          const rgb = hexToRgb(originalColor);
+          if (rgb) {
+            const rgbPattern = `rgb\\(\\s*${rgb.r}\\s*,\\s*${rgb.g}\\s*,\\s*${rgb.b}\\s*\\)`;
+            if (new RegExp(rgbPattern, "i").test(style)) {
+              const lightRgb = hexToRgb(lightColor);
+              if (lightRgb) {
+                const newStyle = style.replace(
+                  new RegExp(rgbPattern, "gi"),
+                  `rgb(${lightRgb.r}, ${lightRgb.g}, ${lightRgb.b})`
+                );
+                el.setAttribute("style", newStyle);
+              }
+            }
           }
-        } catch (e) {
-          console.error("Error pausing animation:", e);
         }
       });
-      animationInstances = [];
-
-      try {
-        // Добавляем уникальные ID и stroke к каждому path для селектора
-        // Анимация draw работает только со stroke, поэтому нужно добавить stroke
-        paths.forEach((pathElement, index) => {
-          const path = pathElement as SVGPathElement;
-          const uniqueId = `timer-path-${Date.now()}-${index}`;
-          path.setAttribute("id", uniqueId);
-
-          // Сохраняем оригинальный fill
-          const originalFill =
-            path.getAttribute("fill") || `url(#${gradientId.value})`;
-          path.setAttribute("data-original-fill", originalFill);
-
-          // Убираем fill полностью во время анимации, чтобы stroke был виден
-          path.setAttribute("fill", "none");
-
-          // Добавляем stroke для видимости анимации draw
-          // Используем прямой цвет вместо градиента для лучшей видимости
-          const strokeColor = props.colors.fillColor; // Используем темный цвет для контраста
-          path.setAttribute("stroke", strokeColor);
-          path.setAttribute("stroke-width", "10"); // Увеличиваем ширину для лучшей видимости
-          path.setAttribute("stroke-linecap", "round");
-          path.setAttribute("stroke-linejoin", "round");
-          path.setAttribute("stroke-opacity", "1");
-        });
-
-        // Создаем drawable используя селектор всех path элементов
-        // animejs ожидает селектор строку, а не функцию
-        const drawables = svg.createDrawable("path[id^='timer-path-']");
-
-        console.log(
-          `animateIconPaths: Created ${drawables?.length || 0} drawables from ${
-            paths.length
-          } paths`
-        );
-
-        if (!drawables || drawables.length === 0) {
-          console.warn("animateIconPaths: No drawables created");
-          // Убираем ID в случае ошибки
-          paths.forEach((pathElement) => {
-            (pathElement as SVGPathElement).removeAttribute("id");
-          });
-          return;
+    });
+  }
+  
+  // Применяем замену для fillColors
+  if (icon.fillColors && icon.fillColors.length > 0) {
+    icon.fillColors.forEach((originalColor) => {
+      const normalizedOriginal = normalizeColor(originalColor);
+      const fillColor = props.colors.fillColor;
+      
+      // Находим все элементы с этим цветом
+  const allElements = svgElement.querySelectorAll("*");
+  allElements.forEach((element) => {
+    const el = element as SVGElement;
+    const fill = el.getAttribute("fill");
+    const stroke = el.getAttribute("stroke");
+    
+        // Заменяем fill
+        if (fill && normalizeColor(fill) === normalizedOriginal) {
+          el.setAttribute("fill", fillColor);
         }
-
-        // Анимируем все path одновременно с задержкой между ними
-        const anim = animate(drawables, {
-          draw: ["0 0", "0 1"],
-          ease: "easeOutExpo",
-          duration: 2500, // Увеличиваем длительность до 2.5 секунд
-          delay: stagger(150), // Увеличиваем задержку между path
-          complete: () => {
-            // Восстанавливаем fill в группе
-            if (group) {
-              const originalGroupFill = group.getAttribute(
-                "data-original-group-fill"
-              );
-              if (originalGroupFill) {
-                group.setAttribute("fill", originalGroupFill);
+        
+        // Заменяем stroke
+        if (stroke && normalizeColor(stroke) === normalizedOriginal) {
+        el.setAttribute("stroke", fillColor);
+        }
+        
+        // Также проверяем RGB формат в атрибутах стиля
+        const style = el.getAttribute("style");
+        if (style) {
+          const rgb = hexToRgb(originalColor);
+          if (rgb) {
+            const rgbPattern = `rgb\\(\\s*${rgb.r}\\s*,\\s*${rgb.g}\\s*,\\s*${rgb.b}\\s*\\)`;
+            if (new RegExp(rgbPattern, "i").test(style)) {
+              const fillRgb = hexToRgb(fillColor);
+              if (fillRgb) {
+                const newStyle = style.replace(
+                  new RegExp(rgbPattern, "gi"),
+                  `rgb(${fillRgb.r}, ${fillRgb.g}, ${fillRgb.b})`
+                );
+                el.setAttribute("style", newStyle);
               }
-              group.removeAttribute("data-original-group-fill");
             }
-
-            // После завершения анимации восстанавливаем fill и убираем stroke
-            paths.forEach((pathElement) => {
-              const path = pathElement as SVGPathElement;
-              const originalFill = path.getAttribute("data-original-fill");
-              if (originalFill) {
-                path.setAttribute("fill", originalFill);
-                path.removeAttribute("data-original-fill");
-              }
-              // Убираем stroke после анимации
-              path.removeAttribute("stroke");
-              path.removeAttribute("stroke-width");
-              path.removeAttribute("stroke-linecap");
-              path.removeAttribute("stroke-linejoin");
-              path.removeAttribute("stroke-opacity");
-              // Убираем ID
-              path.removeAttribute("id");
-            });
-          },
-        });
-
-        console.log("animateIconPaths: Animation started:", anim);
-        animationInstances.push(anim);
-        hasAnimated = true; // Отмечаем, что анимация была запущена
-      } catch (error) {
-        console.error("animateIconPaths: Error creating animation:", error);
-        // Убираем ID в случае ошибки
-        paths.forEach((pathElement) => {
-          (pathElement as SVGPathElement).removeAttribute("id");
-        });
       }
-    }, 200); // Увеличиваем задержку для гарантии обновления DOM
+    }
   });
+    });
+  }
+  
+  // Также нужно заменить цвета в JSON данных анимации, если они есть
+  // Это делается через замену в строковом представлении и обновление через innerHTML
+  // Но это может сломать анимацию, поэтому делаем это аккуратно
+  // Лучше оставить JSON как есть, так как анимация сама управляет цветами
+};
+
+// Вспомогательная функция для конвертации hex в RGB
+const hexToRgb = (hex: string): { r: number; g: number; b: number } | null => {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!result || !result[1] || !result[2] || !result[3]) {
+    return null;
+  }
+  return {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16),
+  };
+};
+
+// Выполняем скрипты из SVG (для SVGator и других анимированных SVG)
+const executeSvgScripts = () => {
+  if (!iconContainerRef.value) return;
+  
+  const svgElement = iconContainerRef.value.querySelector("svg");
+  if (!svgElement) return;
+  
+  const rootId = svgElement.getAttribute("id");
+  if (!rootId) {
+    console.warn("SVG element has no ID, cannot initialize animation");
+    return;
+  }
+  
+  // Находим все скрипты внутри SVG
+  const scripts = svgElement.querySelectorAll("script");
+  
+  // Инициализируем массив для данных анимации ПЕРЕД выполнением скриптов
+  if (!(window as any).__SVGATOR_PLAYER__) {
+    (window as any).__SVGATOR_PLAYER__ = {};
+  }
+  if (!Array.isArray((window as any).__SVGATOR_PLAYER__["5c7f360c"])) {
+    const existingClass = typeof (window as any).__SVGATOR_PLAYER__["5c7f360c"] === "function" 
+      ? (window as any).__SVGATOR_PLAYER__["5c7f360c"] 
+      : null;
+    (window as any).__SVGATOR_PLAYER__["5c7f360c"] = [];
+    if (existingClass) {
+      (window as any).__SVGATOR_PLAYER__["5c7f360c_class"] = existingClass;
+    }
+  }
+  
+  // Выполняем скрипты естественным образом - создаем новые script элементы
+  // Это позволяет браузеру выполнить их в правильном контексте
+  scripts.forEach((script) => {
+    try {
+      const newScript = document.createElement("script");
+      let scriptContent = script.textContent || script.innerHTML;
+      
+      if (scriptContent.includes("<![CDATA[")) {
+        const cdataMatch = scriptContent.match(/<!\[CDATA\[([\s\S]*?)\]\]>/);
+        if (cdataMatch) {
+          scriptContent = cdataMatch[1];
+        }
+      }
+      
+      newScript.textContent = scriptContent;
+      // Выполняем скрипт в глобальном контексте
+      document.head.appendChild(newScript);
+      document.head.removeChild(newScript);
+    } catch (error) {
+      console.error("Error executing SVG script:", error);
+    }
+  });
+  
+  // Обрабатываем ситуацию, когда первый скрипт заменяет массив на класс
+  const savedClass = (window as any).__SVGATOR_PLAYER__?.["5c7f360c_class"];
+  const currentData = (window as any).__SVGATOR_PLAYER__?.["5c7f360c"];
+  const Ge = savedClass || (typeof currentData === "function" ? currentData : null);
+  
+  // Если есть массив данных и класс, инициализируем анимацию
+  if (Array.isArray(currentData) && currentData.length > 0 && Ge && typeof Ge.init === "function") {
+    // Подавляем ошибки от автоматического запуска
+    const originalError = console.error;
+    console.error = (...args: any[]) => {
+      if (args[0] && typeof args[0] === 'string' && (
+        args[0].includes('n[s] is not a function') ||
+        args[0].includes('Cannot read properties of undefined') ||
+        args[0].includes('querySelector')
+      )) {
+        return; // Подавляем ожидаемые ошибки
+      }
+      originalError.apply(console, args);
+    };
+    
+    try {
+      Ge.init();
+    } catch (e) {
+      // Игнорируем ошибки инициализации
+    } finally {
+      console.error = originalError;
+    }
+  }
+  
+  // Используем простой polling для поиска и запуска player
+  const findAndPlayPlayer = (attempt = 1, maxAttempts = 20) => {
+    if (attempt > maxAttempts) {
+      console.warn("Could not find SVGator player after multiple attempts");
+      return;
+    }
+    
+    setTimeout(() => {
+      const player = (window as any).__SVGATOR_PLAYER__;
+      
+      // Метод 1: Проверяем player на SVG элементе
+      const svgatorPlayer = (svgElement as any).svgatorPlayer;
+      if (svgatorPlayer && typeof svgatorPlayer.play === "function") {
+        console.log("Found player on SVG element, starting animation");
+        try {
+          svgatorPlayer.play();
+          return;
+        } catch (e) {
+          console.warn("Error playing animation:", e);
+        }
+      }
+      
+      // Метод 2: Ищем player в глобальном объекте по root ID
+      if (rootId && player && player[rootId] && typeof player[rootId].play === "function") {
+        console.log(`Found player by root ID: ${rootId}, starting animation`);
+        try {
+          player[rootId].play();
+          return;
+        } catch (e) {
+          console.warn("Error playing animation:", e);
+        }
+      }
+      
+      // Метод 3: Ищем все player объекты в __SVGATOR_PLAYER__
+      if (player) {
+        const allKeys = Object.keys(player);
+        for (const key of allKeys) {
+          if (key === "5c7f360c" || key === "5c7f360c_class") continue;
+          
+          const playerObj = player[key];
+          if (playerObj && typeof playerObj === "object") {
+            if (typeof playerObj.play === "function") {
+              const playerRootId = playerObj.rootId || 
+                                  (playerObj.svg?.getAttribute?.("id")) ||
+                                  playerObj._rootId ||
+                                  (playerObj._svg?.getAttribute?.("id"));
+              
+              if (playerRootId === rootId) {
+                console.log(`Found player with key ${key}, starting animation`);
+                try {
+                  playerObj.play();
+                  return;
+                } catch (e) {
+                  console.warn("Error playing animation:", e);
+                }
+              }
+            }
+            
+            if (playerObj.player && typeof playerObj.player.play === "function") {
+              console.log(`Found nested player with key ${key}, starting animation`);
+              try {
+                playerObj.player.play();
+                return;
+              } catch (e) {
+                console.warn("Error playing nested animation:", e);
+              }
+            }
+          }
+        }
+      }
+      
+      // Если не нашли, пробуем еще раз
+      findAndPlayPlayer(attempt + 1, maxAttempts);
+    }, attempt * 200); // Увеличиваем задержку с каждой попыткой
+  };
+  
+  // Начинаем поиск после небольшой задержки
+  setTimeout(() => {
+    findAndPlayPlayer();
+  }, 500);
+  
+  // Применяем цвета после выполнения скрипта для всех иконок с массивами цветов
+  const icon = getIconById(props.iconId);
+  const needsColorReplacement = icon && (
+    (icon.lightColors && icon.lightColors.length > 0) ||
+    (icon.fillColors && icon.fillColors.length > 0)
+  );
+  
+  if (needsColorReplacement) {
+    setTimeout(() => {
+      console.log("Applying colors to animated SVG");
+      applyColorsToAnimatedSvg();
+    }, 1000);
+  }
+  
+  // Удаляем скрипты после инициализации
+  setTimeout(() => {
+    scripts.forEach((script) => {
+      try {
+        script.remove();
+      } catch (e) {
+        // Игнорируем ошибки удаления
+      }
+    });
+  }, 2000);
 };
 
 // Загружаем иконку при монтировании и при изменении iconId
 watch(
   () => props.iconId,
   async () => {
-    hasAnimated = false; // Сбрасываем флаг при смене иконки
     await loadIcon();
-    // Запускаем анимацию после загрузки
-    animateIconPaths();
+    // Ждем обновления DOM и выполняем скрипты для SVG со скриптами
+    nextTick(() => {
+      if (iconSvgContent.value && /<script[\s\S]*?<\/script>/i.test(iconSvgContent.value)) {
+        // Увеличиваем задержку, чтобы SVG точно был в DOM
+        // Используем requestAnimationFrame для гарантии отрисовки
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            // Проверяем, что SVG элемент существует в DOM
+            const svgElement = iconContainerRef.value?.querySelector("svg");
+            if (svgElement) {
+              console.log("SVG element found in DOM, executing scripts");
+              executeSvgScripts();
+            } else {
+              console.warn("SVG element not found in DOM");
+            }
+          }, 100);
+        });
+      }
+    });
   },
   { immediate: true }
 );
@@ -300,22 +585,20 @@ watch(
 onMounted(() => {
   loadIcon();
 });
-
-onUnmounted(() => {
-  // Останавливаем все анимации при размонтировании
-  animationInstances.forEach((anim) => {
-    if (anim && typeof anim.pause === "function") {
-      anim.pause();
-    }
-  });
-  animationInstances = [];
-});
 </script>
 
 <style scoped>
+.timer-icon {
+  display: inline-block;
+}
+
 .timer-icon :deep(svg) {
   display: block;
-  width: 144px;
-  height: 144px;
+  max-width: 50vw;
+  max-height: 50vw;
+  width: auto;
+  height: auto;
+  min-width: 100px;
+  min-height: 100px;
 }
 </style>
